@@ -1,0 +1,48 @@
+# Byte-compiled / virtual environment files
+__pycache__/
+*.py[cod]
+*.swp
+*.swo
+
+# Virtual environment
+venv/
+env/
+
+# Django secret key & settings (if using .env file)
+.env
+*.env
+
+# Database and migration files
+db.sqlite3
+*.sqlite3
+*.sqlite3-journal
+media/
+
+# Logs and debug files
+logs/
+*.log
+
+# Compiled files
+*.out
+*.o
+
+# Static files (if generated)
+staticfiles/
+static/
+
+# Ignore node_modules if you accidentally install Node packages in the backend
+node_modules/
+
+# Ignore VS Code, PyCharm, JetBrains, or other IDE-specific files
+.vscode/
+.idea/
+*.iml
+
+# Ignore coverage reports
+htmlcov/
+.coverage
+*.cover
+
+# Ignore Docker files (if using Docker)
+*.pid
+*.tar
