@@ -1,7 +1,11 @@
 from rest_framework import viewsets, permissions
 from django.core.exceptions import PermissionDenied
-from .models import Book
-from .serializers import BookSerializer
+from books.models import Author, Genre, Book
+from books.serializers import AuthorSerializer, GenreSerializer, BookSerializer
+
+class GenreViewSet(viewsets.ModelViewSet):
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
 
 class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
@@ -28,3 +32,14 @@ class BookViewSet(viewsets.ModelViewSet):
             serializer.save(store=self.request.user.store, status='pending')
         else:
             raise PermissionDenied("Only store owners can add books.")
+
+
+class AuthorViewSet(viewsets.ReadOnlyModelViewSet):  # Read-Only
+    queryset = Author.objects.all()
+    serializer_class = AuthorSerializer
+    permission_classes = [permissions.AllowAny]  # Anyone can view authors
+
+class GenreViewSet(viewsets.ModelViewSet):  # Read-Only
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
+    permission_classes = [permissions.AllowAny]  # Anyone can view genres

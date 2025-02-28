@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import Book
+from books.models import Author, Genre, Book
 from stores.models import Store
+
 
 class BookSerializer(serializers.ModelSerializer):
     store_name = serializers.CharField(source="store.name", read_only=True)  # Extra field
@@ -33,3 +34,14 @@ class BookSerializer(serializers.ModelSerializer):
         if not Store.objects.filter(id=value.id, owner=request.user).exists():
             raise serializers.ValidationError("You can only add books to your own store.")
         return value
+
+
+class AuthorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Author
+        fields = '__all__'
+
+class GenreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Genre
+        fields = '__all__'

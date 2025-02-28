@@ -1,7 +1,7 @@
 from django.db import models
 from stores.models import Store
-from .author import Author  # Assuming you created a separate author model file
-from .genre import Genre  # Assuming you created a separate genre model file
+from .author import Author
+from .genre import Genre
 
 class Book(models.Model):
     STATUS_CHOICES = [
@@ -25,4 +25,5 @@ class Book(models.Model):
 
     def __str__(self):
         return self.title
+    
 
