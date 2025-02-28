@@ -11,7 +11,7 @@ class Store(models.Model):
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
     owner = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    logo = models.ImageField(upload_to="store_logos/", blank=True, null=True)
+    logo = models.ImageField(upload_to="assets/store_logos/", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")

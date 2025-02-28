@@ -7,4 +7,5 @@ urlpatterns = [
     path("authentication/", include("rest_framework.urls")),
     path("user/", include("users.urls")),
     path("store/", include("stores.urls")),
+    path("books/", include("books.urls")),
 ]
