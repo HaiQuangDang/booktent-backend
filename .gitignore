@@ -46,4 +46,4 @@ htmlcov/
 # Ignore Docker files (if using Docker)
 *.pid
 *.tar
-.assets/
+assets/

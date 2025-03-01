@@ -3,6 +3,8 @@ from django.shortcuts import render
 from rest_framework import generics, permissions
 from .models import Store
 from .serializers import StoreSerializer
+from rest_framework.views import APIView
+from rest_framework.response import Response
 
 class StoreListCreateView(generics.ListCreateAPIView):
     queryset = Store.objects.all()
@@ -33,3 +35,15 @@ class StoreDetailView(generics.RetrieveUpdateDestroyAPIView):
             instance.delete()
         else:
             raise permissions.PermissionDenied("You do not have permission to delete this store.")
+
+class MyStoreView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get the store owned by the authenticated user"""
+        try:
+            store = Store.objects.get(owner=request.user)
+            return Response(StoreSerializer(store).data)
+        except Store.DoesNotExist:
+            # return Response({"detail": "No store found"}, status=404)
+            return Response({"detail": "No store found"})

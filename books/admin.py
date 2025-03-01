@@ -5,7 +5,7 @@ from books.models import Author, Genre, Book
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
-    list_display = ("title", "store", "price", "status", "created_at")
+    list_display = ("id", "title", "store", "price", "status", "stock_quantity", "created_at")
     list_filter = ("status", "store")
     search_fields = ("title", "store__name")
 
