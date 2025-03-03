@@ -12,7 +12,7 @@ class Book(models.Model):
 
     title = models.CharField(max_length=255)
     description = models.TextField()
-    cover_image = models.ImageField(upload_to="assets/book_covers/", null=True, blank=True)
+    cover_image = models.ImageField(upload_to="covers/", null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="books")
     authors = models.ManyToManyField(Author, related_name="books")
