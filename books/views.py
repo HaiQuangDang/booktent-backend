@@ -16,12 +16,12 @@ class BookViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         # Admins see all books
-        if user.is_authenticated and user.is_staff:
-            return Book.objects.all()
+        # if user.is_authenticated and user.is_staff:
+        #     return Book.objects.all()
 
         # Store owners see all books from their store + approved books from others
-        if user.is_authenticated and hasattr(user, 'store'):
-            return Book.objects.filter(store=user.store) | Book.objects.filter(status='approved')
+        # if user.is_authenticated and hasattr(user, 'store'):
+        #     return Book.objects.filter(store=user.store) | Book.objects.filter(status='approved')
 
         # Guests and normal users see only approved books
         return Book.objects.filter(status='approved')
