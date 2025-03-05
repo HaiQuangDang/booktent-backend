@@ -32,4 +32,4 @@ class StoreSerializer(serializers.ModelSerializer):
         else:
             # Otherwise, return only approved books
             books = Book.objects.filter(store=obj, status="approved")
-        return BookSerializer(books, many=True).data  # Serialize books
+        return BookSerializer(books, many=True, context={"request": request}).data  # Serialize books

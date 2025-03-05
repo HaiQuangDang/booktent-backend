@@ -1,11 +1,9 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, generics
 from django.core.exceptions import PermissionDenied
 from books.models import Author, Genre, Book
 from books.serializers import AuthorSerializer, GenreSerializer, BookSerializer
 
-class GenreViewSet(viewsets.ModelViewSet):
-    queryset = Genre.objects.all()
-    serializer_class = GenreSerializer
+
 
 class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
@@ -16,12 +14,12 @@ class BookViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         # Admins see all books
-        # if user.is_authenticated and user.is_staff:
-        #     return Book.objects.all()
+        if user.is_authenticated and user.is_staff:
+            return Book.objects.all()
 
         # Store owners see all books from their store + approved books from others
-        # if user.is_authenticated and hasattr(user, 'store'):
-        #     return Book.objects.filter(store=user.store) | Book.objects.filter(status='approved')
+        if user.is_authenticated and hasattr(user, 'store'):
+            return Book.objects.filter(store=user.store) | Book.objects.filter(status='approved')
 
         # Guests and normal users see only approved books
         return Book.objects.filter(status='approved')
@@ -32,6 +30,12 @@ class BookViewSet(viewsets.ModelViewSet):
             serializer.save(store=self.request.user.store, status='pending')
         else:
             raise PermissionDenied("Only store owners can add books.")
+
+class ApprovedBookListView(generics.ListAPIView):
+    """Returns only approved books for the homepage"""
+    queryset = Book.objects.filter(status="approved")
+    serializer_class = BookSerializer
+    permission_classes = []  # Anyone can access
 
 
 class AuthorViewSet(viewsets.ReadOnlyModelViewSet):  # Read-Only
