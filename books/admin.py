@@ -12,9 +12,9 @@ class BookAdmin(admin.ModelAdmin):
 
 @admin.register(Author)
 class AuthorAdmin(admin.ModelAdmin):
-    list_display = ("name",)
+    list_display = ("id", "name",)
 
 @admin.register(Genre)
 class GenreAdmin(admin.ModelAdmin):
-    list_display = ("name",)
+    list_display = ("id", "name",)
 
