@@ -1,5 +1,6 @@
-from rest_framework import viewsets, permissions, generics
+from rest_framework import viewsets, permissions, generics, status
 from django.core.exceptions import PermissionDenied
+from rest_framework.response import Response
 from books.models import Author, Genre, Book
 from books.serializers import AuthorSerializer, GenreSerializer, BookSerializer
 
@@ -39,6 +40,16 @@ class BookViewSet(viewsets.ModelViewSet):
         book.status = "pending"
         book.save()
         return response
+    def destroy(self, request, *args, **kwargs):
+        book = self.get_object()
+
+        # Check if the request user owns the store that owns this book
+        if book.store.owner != request.user:
+            raise PermissionDenied("You can only delete books from your own store.")
+
+        # Proceed with deletion
+        self.perform_destroy(book)
+        return Response({"detail": "Book deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 class ApprovedBookListView(generics.ListAPIView):
     """Returns only approved books for the homepage"""
