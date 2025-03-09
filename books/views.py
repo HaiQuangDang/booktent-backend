@@ -25,14 +25,26 @@ class BookViewSet(viewsets.ModelViewSet):
         # Guests and normal users see only approved books
         return Book.objects.filter(status='approved')
 
-    def perform_create(self, serializer):
-        """Set book status to 'pending' when created by a store owner."""
-        if self.request.user.is_authenticated and hasattr(self.request.user, 'store'):
-            serializer.save(store=self.request.user.store, status='pending')
-        else:
-            raise PermissionDenied("Only store owners can add books.")
-    # Update
+    # def perform_create(self, serializer):
+    #     """Set book status to 'pending' when created by a store owner."""
+    #     if self.request.user.is_authenticated and hasattr(self.request.user, 'store'):
+    #         serializer.save(store=self.request.user.store, status='pending')
+    #     else:
+    #         raise PermissionDenied("Only store owners can add books.")
 
+    def perform_create(self, serializer):
+        """Only store owners with an active store can add books."""
+        if (
+            self.request.user.is_authenticated 
+            and hasattr(self.request.user, "store") 
+            and self.request.user.store.status == "active"
+        ):
+            serializer.save(store=self.request.user.store, status="pending")
+        else:
+            raise PermissionDenied("Only store owners with an active store can add books.")
+
+        
+    # Update
     def update(self, request, *args, **kwargs):
         response = super().update(request, *args, **kwargs)
         # Set status to pending after updating
@@ -40,6 +52,7 @@ class BookViewSet(viewsets.ModelViewSet):
         book.status = "pending"
         book.save()
         return response
+    
     def destroy(self, request, *args, **kwargs):
         book = self.get_object()
 
