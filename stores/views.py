@@ -1,6 +1,6 @@
 from django.shortcuts import render
 # Create your views here.
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, serializers
 from .models import Store
 from .serializers import StoreSerializer
 from rest_framework.views import APIView
@@ -12,6 +12,8 @@ class StoreListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):
+        if Store.objects.filter(owner=self.request.user).exists():
+            raise serializers.ValidationError({"detail": "You already have a store."})
         serializer.save(owner=self.request.user)  # Set the store owner to the logged-in user
 
 class StoreDetailView(generics.RetrieveUpdateDestroyAPIView):
