@@ -30,6 +30,15 @@ class BookViewSet(viewsets.ModelViewSet):
             serializer.save(store=self.request.user.store, status='pending')
         else:
             raise PermissionDenied("Only store owners can add books.")
+    # Update
+
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        # Set status to pending after updating
+        book = self.get_object()
+        book.status = "pending"
+        book.save()
+        return response
 
 class ApprovedBookListView(generics.ListAPIView):
     """Returns only approved books for the homepage"""

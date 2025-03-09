@@ -50,6 +50,12 @@ class BookSerializer(serializers.ModelSerializer):
 
     def get_genre_names(self, obj):
         return [genre.name for genre in obj.genres.all()]
+    # Update
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        instance.status = "pending"  # Reset to pending after update
+        instance.save()
+        return instance
 
 
 class AuthorSerializer(serializers.ModelSerializer):
