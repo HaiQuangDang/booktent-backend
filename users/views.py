@@ -22,17 +22,23 @@ class UserDetailView(generics.RetrieveAPIView):
 
 class DeleteUserView(generics.DestroyAPIView):
     queryset = User.objects.all()
-    permission_classes = [IsAuthenticated, IsAdminUser]  # Now only admins can delete users
+    permission_classes = [IsAuthenticated]  # Any authenticated user can access
+
     def perform_destroy(self, instance):
-        # Prevent self-deletion
+        # If the user is deleting themselves, allow it
         if instance == self.request.user:
-            raise PermissionDenied("You cannot delete yourself.")
+            instance.delete()
+            return
+        
+        # Admins can delete regular users but NOT other superusers
+        if self.request.user.is_staff:
+            if instance.is_superuser:
+                raise PermissionDenied("Superusers cannot delete other superusers.")
+            instance.delete()
+            return
 
-        # Prevent superuser from deleting another superuser
-        if instance.is_superuser and self.request.user.is_superuser:
-            raise PermissionDenied("Superusers cannot delete other superusers.")
+        raise PermissionDenied("You can only delete your own account.")
 
-        instance.delete()
 
 
 class AdminCheckView(APIView):
@@ -48,10 +54,10 @@ class AdminCheckView(APIView):
         })
 
 
-class ListUsersView(generics.ListAPIView):
+class ListUsersView(generics.ListAPIView):# Only admins can access
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]  # Only admins can access
+    permission_classes = [permissions.IsAdminUser]  
 
 
 class UserMeView(APIView):
@@ -60,3 +66,12 @@ class UserMeView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+    
+
+class UpdateUserView(generics.UpdateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user  # Users can only update their own profile
