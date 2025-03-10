@@ -18,6 +18,8 @@ class UserDetailView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]  # Only logged-in users can access
+    def get_serializer_context(self):
+        return {"request": self.request}  # Pass request context
 
 
 class DeleteUserView(generics.DestroyAPIView):
@@ -64,7 +66,7 @@ class UserMeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        serializer = UserSerializer(request.user)
+        serializer = UserSerializer(request.user, context={"request": request})
         return Response(serializer.data)
     
 
@@ -75,3 +77,6 @@ class UpdateUserView(generics.UpdateAPIView):
 
     def get_object(self):
         return self.request.user  # Users can only update their own profile
+    
+    def get_serializer_context(self):
+        return {"request": self.request}  # Pass request context
