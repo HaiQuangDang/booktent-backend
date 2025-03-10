@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import Profile
+from rest_framework.validators import UniqueValidator
 
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -9,11 +10,21 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(required=False)
+    email = serializers.EmailField(
+        required=True,
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(),
+                message="This email has been used." 
+            )]  # Enforce unique email
+    )
 
     class Meta:
         model = User
         fields = ["id", "username", "password", "email", "is_staff", "is_superuser", "profile"]
-        extra_kwargs = {"password": {"write_only": True}}
+        extra_kwargs = {
+            "password": {"write_only": True},
+        }
 
     def create(self, validated_data):
         profile_data = validated_data.pop("profile", {})
