@@ -4,9 +4,10 @@ from .models import Profile
 from rest_framework.validators import UniqueValidator
 
 class ProfileSerializer(serializers.ModelSerializer):
+    # avatar = serializers.ImageField(required=False)  # Allow file uploads
     class Meta:
         model = Profile
-        fields = ["avatar", "address"]  # Added address
+        fields = ["avatar", "address"]
 
 class UserSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(required=False)
@@ -16,22 +17,23 @@ class UserSerializer(serializers.ModelSerializer):
             UniqueValidator(
                 queryset=User.objects.all(),
                 message="This email has been used." 
-            )]  # Enforce unique email
+            )]
     )
+    current_password = serializers.CharField(write_only=True, required=False)  # Current password (optional)
+    password = serializers.CharField(write_only=True, required=False)  # New password (optional)
 
     class Meta:
         model = User
-        fields = ["id", "username", "password", "email", "is_staff", "is_superuser", "profile"]
+        fields = ["id", "username", "password", "current_password", "email", "is_staff", "is_superuser", "profile"]
         extra_kwargs = {
-            "password": {"write_only": True},
+            "password": {"write_only": True, "required": False},
         }
 
     def create(self, validated_data):
         profile_data = validated_data.pop("profile", {})
-        print(validated_data, profile_data)  # Debugging output
         user = User.objects.create_user(**validated_data)
         
-        # Create or update the profile with avatar and address if provided
+        # Create or update profile
         Profile.objects.get_or_create(user=user)
         if "avatar" in profile_data:
             user.profile.avatar = profile_data["avatar"]
@@ -43,18 +45,29 @@ class UserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})
+
+        # Update username and email
         instance.username = validated_data.get("username", instance.username)
         instance.email = validated_data.get("email", instance.email)
-        if "password" in validated_data:
-            instance.set_password(validated_data["password"])
+
+        # Handle password change (only if both new password and current password are provided)
+        current_password = validated_data.pop("current_password", None)
+        new_password = validated_data.pop("password", None)
+        
+        if new_password:
+            if not current_password or not instance.check_password(current_password):
+                raise serializers.ValidationError({"current_password": "Current password is incorrect."})
+            instance.set_password(new_password)
+
         instance.save()
 
-        # Update avatar and address if provided
+        # Update profile fields if provided
         if "avatar" in profile_data:
             instance.profile.avatar = profile_data["avatar"]
         if "address" in profile_data:
             instance.profile.address = profile_data["address"]
-        if profile_data:  # Only save if there’s data to update
+        
+        if profile_data:
             instance.profile.save()
 
         return instance
