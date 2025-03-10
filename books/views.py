@@ -23,14 +23,7 @@ class BookViewSet(viewsets.ModelViewSet):
             return Book.objects.filter(store=user.store) | Book.objects.filter(status='approved')
 
         # Guests and normal users see only approved books
-        return Book.objects.filter(status='approved')
-
-    # def perform_create(self, serializer):
-    #     """Set book status to 'pending' when created by a store owner."""
-    #     if self.request.user.is_authenticated and hasattr(self.request.user, 'store'):
-    #         serializer.save(store=self.request.user.store, status='pending')
-    #     else:
-    #         raise PermissionDenied("Only store owners can add books.")
+        return Book.objects.filter(status='approved', store__status='active')
 
     def perform_create(self, serializer):
         """Only store owners with an active store can add books."""
@@ -66,7 +59,7 @@ class BookViewSet(viewsets.ModelViewSet):
 
 class ApprovedBookListView(generics.ListAPIView):
     """Returns only approved books for the homepage"""
-    queryset = Book.objects.filter(status="approved")
+    queryset = Book.objects.filter(status="approved", store__status="active")
     serializer_class = BookSerializer
     permission_classes = []  # Anyone can access
 
