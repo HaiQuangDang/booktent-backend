@@ -10,8 +10,9 @@ urlpatterns = [
     path("user/", include("users.urls")),
     path("stores/", include("stores.urls")),
     path("books/", include("books.urls")),
-
+    path("cart/", include("cart.urls")),
 ]
 
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+from django.urls import include, path
