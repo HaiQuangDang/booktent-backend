@@ -6,6 +6,7 @@ from .models import Order, OrderItem
 from cart.models import Cart, CartItem
 from books.models import Book
 from .serializers import OrderSerializer
+from stores.models import Store  # ✅ Import Store
 
 class OrderViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
@@ -29,6 +30,7 @@ class OrderViewSet(viewsets.ViewSet):
         
         order = Order.objects.create(user=user, total_price=0)
         total_price = 0
+        store_ids = set()  # ✅ Track unique store IDs
         
         for item in items:
             order_item = OrderItem.objects.create(
@@ -38,10 +40,26 @@ class OrderViewSet(viewsets.ViewSet):
                 price=item.price
             )
             total_price += item.total_price
+
+            if item.book.store:  # ✅ Ensure book has a store
+                store_ids.add(item.book.store.id)
+        
             item.delete()  # Remove purchased items from cart
         
         order.total_price = total_price
         order.save()
+
+        # ✅ Associate stores with the order
+        print(f"📌 Store IDs found: {store_ids}")  # Debugging
+        order.stores.set(store_ids)  # ✅ Assign stores to order
+        order.save()
         
         serializer = OrderSerializer(order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def list(self, request):
+        """List all orders for the authenticated user."""
+        user = request.user
+        orders = Order.objects.filter(user=user).order_by("-created_at")  # Show latest orders first
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data)
