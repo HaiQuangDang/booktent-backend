@@ -7,13 +7,18 @@ import logging
 logger = logging.getLogger(__name__)
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    book_title = serializers.CharField(source="book.title", read_only=True)
     class Meta:
         model = OrderItem
         fields = "__all__"
+        extra_fields = ["book_title"]  
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     stores = serializers.PrimaryKeyRelatedField(many=True, queryset=Store.objects.all(), required=False)
+    payment_method = serializers.ChoiceField(choices=Order.PAYMENT_METHODS, required=True)
+    payment_status = serializers.ChoiceField(choices=Order.PAYMENT_STATUSES, read_only=True)
+
 
     class Meta:
         model = Order

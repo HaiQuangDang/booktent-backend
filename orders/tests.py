@@ -1,46 +1,37 @@
-from django.test import TestCase
+# order model old version
 
-# Create your tests here.
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from .models import Order, OrderItem
-from .serializers import OrderSerializer
-from cart.models import CartItem, Cart  # Import Cart & CartItem
 
-class CreateOrderView(APIView):
-    permission_classes = [IsAuthenticated]
+from django.db import models
+from django.contrib.auth.models import User
+from books.models import Book
+from stores.models import Store 
 
-    def post(self, request):
-        user = request.user
+class Order(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),        # Order placed
+        ("processing", "Processing"),  # Order being prepared
+        ("shipped", "Shipped"),        # Order sent out (if delivery exists)
+        ("completed", "Completed"),    # Order received successfully
+        ("canceled", "Canceled"),      # Order was canceled
+        ("refunded", "Refunded"),      # Order refunded (if needed)
+    ]
 
-        # Get user's cart
-        try:
-            cart = Cart.objects.get(user=user)
-        except Cart.DoesNotExist:
-            return Response({"detail": "Cart not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="orders")
+    created_at = models.DateTimeField(auto_now_add=True)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    stores = models.ManyToManyField(Store, related_name="orders", blank=True)
 
-        cart_items = cart.items.all()
-        if not cart_items:
-            return Response({"detail": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
+    def __str__(self):
+        return f"Order {self.id} - {self.user.username}"
 
-        # Calculate total price
-        total_price = sum(item.total_price for item in cart_items)
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # Price at the time of purchase
 
-        # Create order
-        order = Order.objects.create(user=user, total_price=total_price)
+    def __str__(self):
+        return f"{self.quantity} x {self.book.title} (Order {self.order.id})"
 
-        # Move cart items to order items
-        for item in cart_items:
-            OrderItem.objects.create(
-                order=order,
-                book=item.book,
-                quantity=item.quantity,
-                price=item.price,
-            )
-
-        # Clear cart after ordering
-        cart.items.all().delete()
-
-        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)

@@ -13,15 +13,31 @@ class Order(models.Model):
         ("refunded", "Refunded"),      # Order refunded (if needed)
     ]
 
-    
+    PAYMENT_METHODS = [
+        ("paypal", "PayPal"),
+        ("stripe", "Stripe"),
+        ("cod", "Cash on Delivery"),  # Offline payment
+    ]
+
+    PAYMENT_STATUSES = [
+        ("pending", "Pending"),   # Waiting for user payment
+        ("paid", "Paid"),         # Payment completed successfully
+        ("failed", "Failed"),     # Payment failed
+        ("refunded", "Refunded"), # Payment refunded
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="orders")
     created_at = models.DateTimeField(auto_now_add=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     stores = models.ManyToManyField(Store, related_name="orders", blank=True)
+    
+    # New fields for online payments
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHODS, default="cod")
+    payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUSES, default="pending")
 
     def __str__(self):
-        return f"Order {self.id} - {self.user.username}"
+        return f"Order {self.id} - {self.user.username} - {self.payment_method} - {self.payment_status}"
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
@@ -31,4 +47,3 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.book.title} (Order {self.order.id})"
-
