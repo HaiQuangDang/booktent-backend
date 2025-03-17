@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import Cart, CartItem
-from .serializers import CartSerializer, CartItemSerializer
+from .serializers import CartSerializer
 from books.models import Book
 
 class CartViewSet(viewsets.ViewSet):
@@ -28,12 +28,16 @@ class CartViewSet(viewsets.ViewSet):
         except Book.DoesNotExist:
             return Response({"error": "Book not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        cart_item, created = CartItem.objects.get_or_create(cart=cart, book=book, defaults={"price": book.price})
+        cart_item, created = CartItem.objects.get_or_create(
+            cart=cart, book=book,
+            defaults={"price": book.price, "store": book.store}
+        )
 
         if not created:
             cart_item.quantity += quantity  # If already exists, update quantity
 
         cart_item.price = book.price  # Ensure price stays correct
+        cart_item.store = book.store
         cart_item.save()
 
         return Response(CartSerializer(cart).data)

@@ -1,49 +1,48 @@
 from django.db import models
 from django.contrib.auth.models import User
 from books.models import Book
-from stores.models import Store 
+from stores.models import Store
+from django.conf import settings
 
 class Order(models.Model):
-    STATUS_CHOICES = [
-        ("pending", "Pending"),        # Order placed
-        ("processing", "Processing"),  # Order being prepared
-        ("shipped", "Shipped"),        # Order sent out (if delivery exists)
-        ("completed", "Completed"),    # Order received successfully
-        ("canceled", "Canceled"),      # Order was canceled
-        ("refunded", "Refunded"),      # Order refunded (if needed)
+    ORDER_STATUS = [
+        ("pending", "Pending"),        
+        ("processing", "Processing"),  
+        ("shipped", "Shipped"),        
+        ("completed", "Completed"),    
+        ("canceled", "Canceled"),      
+        ("refunded", "Refunded"),      
     ]
 
     PAYMENT_METHODS = [
-        ("paypal", "PayPal"),
-        ("stripe", "Stripe"),
-        ("cod", "Cash on Delivery"),  # Offline payment
+        ('online', 'Online Payment'),
+        ('cod', 'Cash on Delivery'),
     ]
 
-    PAYMENT_STATUSES = [
-        ("pending", "Pending"),   # Waiting for user payment
-        ("paid", "Paid"),         # Payment completed successfully
-        ("failed", "Failed"),     # Payment failed
-        ("refunded", "Refunded"), # Payment refunded
+    PAYMENT_STATUS = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),   
+        ('refunded', 'Refunded'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="orders")
-    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE)  
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
-    stores = models.ManyToManyField(Store, related_name="orders", blank=True)
-    
-    # New fields for online payments
-    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHODS, default="cod")
-    payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUSES, default="pending")
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHODS, default='cod')
+    payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS, default='pending')
+    order_status = models.CharField(max_length=10, choices=ORDER_STATUS, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Order {self.id} - {self.user.username} - {self.payment_method} - {self.payment_status}"
+        store_name = self.store.name if self.store else "No Store"
+        return f"Order {self.id} - {store_name} - {self.order_status}"
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
-    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    book = models.ForeignKey(Book, on_delete=models.PROTECT)  # Can't delete book if linked to orders
     quantity = models.PositiveIntegerField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)  # Price at the time of purchase
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # Snapshot of book price at purchase
 
     def __str__(self):
         return f"{self.quantity} x {self.book.title} (Order {self.order.id})"
