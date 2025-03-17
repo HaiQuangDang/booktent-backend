@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
+import stripe
 
 load_dotenv()
 
@@ -159,3 +160,11 @@ CORS_ALLOWS_CREDENTIALS = True
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+STRIPE_SECRET_KEY = "sk_test_51R3a0KH7QV8sSgjSdoEA5aHx3AjqoG7tMEgqz4zSdSWVcsr6jLU6hemyZAsDccaoJqkRauQeJch22rTgqSeDgdOo00hKKCdMmc"
+STRIPE_PUBLISHABLE_KEY = "pk_test_51R3a0KH7QV8sSgjSrosEFyQgUHZGRTf7fD0HkQdrGhlumZSiQIn5tUUiE9al3p5OqVjhZ7Q5LVABLsuBqHZZ0iTi00Tv0afh2P"
+
+stripe.api_key = STRIPE_SECRET_KEY
+
+FRONTEND_URL = "http://localhost:5173"
+STRIPE_WEBHOOK_SECRET = "whsec_64e60f0dfc6c62ae4898e4185a6fa7a5c6a391d255cfc0c70d629c2db20b3c14"

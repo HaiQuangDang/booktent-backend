@@ -20,6 +20,7 @@ class Order(models.Model):
     ]
 
     PAYMENT_STATUS = [
+        ('unpaid', 'Unpaid'),
         ('pending', 'Pending'),
         ('paid', 'Paid'),
         ('failed', 'Failed'),   
