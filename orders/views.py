@@ -14,12 +14,14 @@ import stripe
 from django.views.decorators.csrf import csrf_exempt
 import json
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 
 # Initialize Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 class OrderViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
+    serializer_class = OrderSerializer  
 
     def create(self, request):
         """Place an order from selected cart items."""
@@ -87,6 +89,26 @@ class OrderViewSet(viewsets.ViewSet):
             return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(OrderSerializer(order).data)
+    
+    # Store
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def my_store_orders(self, request):
+        """Return orders that contain books from the logged-in user's store."""
+        user = request.user
+
+        # Ensure the user has a store
+        if not hasattr(user, "store"):
+            return Response({"error": "You don't own a store."}, status=403)
+
+        store = user.store  # Get the store owned by the user
+
+        # Get orders that contain books from this store
+        orders = Order.objects.filter(items__book__store=store).distinct()
+
+        # Serialize and return the orders
+        serializer = OrderSerializer(orders, many=True)  # Use OrderSerializer explicitly
+        return Response(serializer.data)
+
 
 class StripeCheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]
@@ -165,3 +187,39 @@ def stripe_webhook(request):
         # Update order payment status to "paid" here
 
     return JsonResponse({"status": "success"}, status=200)
+
+class UpdateOrderStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    ALLOWED_TRANSITIONS = {
+        "pending": ["processing", "canceled"],
+        "processing": ["shipped", "canceled"],
+        "shipped": ["completed", "refunded"],
+        "completed": [],
+        "canceled": [],
+        "refunded": []
+    }
+    def patch(self, request, pk):  # ✅ Ensure we use 'pk' from the URL
+        order = get_object_or_404(Order, id=pk, store__owner=request.user)  # ✅ Fix variable name
+        new_status = request.data.get("order_status")
+
+        # ✅ Check if status is valid
+        if new_status not in dict(Order.ORDER_STATUS):
+            return Response({"error": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ✅ Check if transition is allowed
+        if new_status not in self.ALLOWED_TRANSITIONS.get(order.order_status, []):  # ✅ Fix `order_status`
+            return Response({"error": "Invalid status transition."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ✅ Update status
+        order.order_status = new_status  # ✅ Fix `order_status`
+        order.save()
+
+        return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
+    
+class StoreOrderDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id, store__owner=request.user)
+        return Response(OrderSerializer(order).data)
