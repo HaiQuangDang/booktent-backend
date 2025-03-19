@@ -112,16 +112,19 @@ class OrderViewSet(viewsets.ViewSet):
 
 class StripeCheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]
-    
-    def post(self, request, *args, **kwargs):
-        order_id = request.data.get("order_id")
-        try:
-            order = Order.objects.get(id=order_id, user=request.user)
-        except Order.DoesNotExist:
-            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if order.payment_status == "PAID":
-            return Response({"message": "Order already paid."}, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, *args, **kwargs):
+        order_ids = request.data.get("order_ids", [])  # Expecting a list of order IDs
+
+        if not order_ids:
+            return Response({"error": "No orders provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        orders = Order.objects.filter(id__in=order_ids, user=request.user, payment_status="pending")
+
+        if not orders.exists():
+            return Response({"error": "No valid unpaid orders found"}, status=status.HTTP_404_NOT_FOUND)
+
+        total_price = sum(order.total_price for order in orders)
 
         # Create Stripe checkout session
         session = stripe.checkout.Session.create(
@@ -131,17 +134,17 @@ class StripeCheckoutSessionView(APIView):
                     "price_data": {
                         "currency": "usd",
                         "product_data": {
-                            "name": f"Order #{order.id}"
+                            "name": f"Orders {', '.join(str(order.id) for order in orders)}"
                         },
-                        "unit_amount": int(order.total_price * 100),  # Convert to cents
+                        "unit_amount": int(total_price * 100),  # Convert to cents
                     },
                     "quantity": 1,
                 }
             ],
             mode="payment",
             success_url=settings.FRONTEND_URL + "/orders/success?session_id={CHECKOUT_SESSION_ID}",
-            cancel_url=settings.FRONTEND_URL + f"/orders/{order.id}",
-            metadata={"order_id": order.id}
+            cancel_url=settings.FRONTEND_URL + "/cart",
+            metadata={"order_ids": ",".join(str(order.id) for order in orders)}
         )
 
         return Response({"session_id": session.id, "url": session.url}, status=status.HTTP_200_OK)
