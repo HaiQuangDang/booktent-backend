@@ -226,3 +226,29 @@ class StoreOrderDetailView(APIView):
     def get(self, request, order_id):
         order = get_object_or_404(Order, id=order_id, store__owner=request.user)
         return Response(OrderSerializer(order).data)
+    
+class OrderCancellationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        """Allow customers or store owners to cancel an order."""
+        order = get_object_or_404(Order, id=pk)
+
+        # Check if the request is from the order's user OR the store owner
+        if order.user != request.user and order.store.owner != request.user:
+            return Response({"error": "You are not allowed to cancel this order."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Ensure the order can be canceled
+        if order.order_status not in ["pending", "processing"]:
+            return Response({"error": "Order cannot be canceled at this stage."}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            order.order_status = "canceled"
+
+            # If the payment was online and already paid, mark it as refunded
+            if order.payment_method == "online" and order.payment_status == "paid":
+                order.payment_status = "refunded"
+
+            order.save()
+
+        return Response({"message": "Order canceled successfully."}, status=status.HTTP_200_OK)
