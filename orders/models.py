@@ -20,7 +20,6 @@ class Order(models.Model):
     ]
 
     PAYMENT_STATUS = [
-        ('unpaid', 'Unpaid'),
         ('pending', 'Pending'),
         ('paid', 'Paid'),
         ('failed', 'Failed'),   
@@ -32,7 +31,7 @@ class Order(models.Model):
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHODS, default='cod')
     payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS, default='pending')
-    # stripe_payment_intent_id = models.CharField(max_length=255, blank=True, null=True) # stripe id
+    stripe_session_id = models.CharField(max_length=255, blank=True, null=True)
     order_status = models.CharField(max_length=10, choices=ORDER_STATUS, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -3,6 +3,7 @@ from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+from transactions.models import Transaction 
 from .models import Order, OrderItem
 from cart.models import Cart, CartItem
 from books.models import Book
@@ -15,6 +16,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from decimal import Decimal 
 
 # Initialize Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -57,7 +59,7 @@ class OrderViewSet(viewsets.ViewSet):
                     store=store,
                     total_price=total_price,
                     payment_method=payment_method,
-                    payment_status = "pending" if payment_method == "online" else "unpaid"
+                    payment_status = "pending"
                 )
                 for item in items:
                     OrderItem.objects.create(
@@ -66,7 +68,22 @@ class OrderViewSet(viewsets.ViewSet):
                         quantity=item.quantity,
                         price=item.price
                     )
+
+                # **Create a Transaction for this order**
+                admin_fee = total_price * Decimal("0.10")  # 10% fee
+                store_earnings = total_price - admin_fee
+
+                Transaction.objects.create(
+                    order=order,
+                    store=store,
+                    amount=total_price,
+                    admin_fee=admin_fee,
+                    store_earnings=store_earnings,
+                    payment_method=payment_method,
+                    payment_status="pending"  # Will update after payment
+                )
                 orders.append(order)
+                
 
             # Remove only the ordered items from the cart
             selected_items.delete()
@@ -146,23 +163,60 @@ class StripeCheckoutSessionView(APIView):
             cancel_url=settings.FRONTEND_URL + "/cart",
             metadata={"order_ids": ",".join(str(order.id) for order in orders)}
         )
+        # Store the session ID in each order
+        orders.update(stripe_session_id=session.id)
 
         return Response({"session_id": session.id, "url": session.url}, status=status.HTTP_200_OK)
 
 
+# @api_view(["POST"])
+# def payment_success(request):
+#     """Verify Stripe payment and update order status."""
+#     session_id = request.data.get("session_id")
+#     print(session_id)
+#     try:
+#         session = stripe.checkout.Session.retrieve(session_id)
+#         print(session)
+#         if session.payment_status == "paid":
+#             order = Order.objects.filter(user=request.user, payment_status="pending").first()
+#             if order:
+#                 order.payment_status = "paid"
+#                 order.save()
+#                 # ✅ Update the related transaction status to 'COMPLETED'
+#                 transaction = Transaction.objects.filter(order=order, payment_status="pending").first()
+#                 if transaction:
+#                     transaction.payment_status = "paid"
+#                     transaction.save()
+#             return Response({"message": "Payment verified!"})
+#     except stripe.error.StripeError as e:
+#         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+#     return Response({"error": "Payment verification failed."}, status=status.HTTP_400_BAD_REQUEST)
 @api_view(["POST"])
 def payment_success(request):
-    """Verify Stripe payment and update order status."""
+    """Verify Stripe payment and update order & transaction status."""
     session_id = request.data.get("session_id")
-    
+    print(session_id)
     try:
         session = stripe.checkout.Session.retrieve(session_id)
         if session.payment_status == "paid":
-            order = Order.objects.filter(user=request.user, payment_status="pending").first()
-            if order:
-                order.payment_status = "paid"
-                order.save()
-            return Response({"message": "Payment verified!"})
+            # ✅ Find all orders linked to this session
+            orders = Order.objects.filter(stripe_session_id=session_id)
+
+            if not orders.exists():
+                return Response({"error": "No matching pending orders found."}, status=status.HTTP_404_NOT_FOUND)
+
+            # ✅ Update all orders & transactions
+            with transaction.atomic():
+                for order in orders:
+                    order.payment_status = "paid"
+                    order.save()
+
+                    # ✅ Update transactions for this order
+                    Transaction.objects.filter(order=order, payment_status="pending").update(payment_status="paid")
+
+            return Response({"message": "Payment verified and orders updated!"})
+
     except stripe.error.StripeError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -195,8 +249,8 @@ class UpdateOrderStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
     ALLOWED_TRANSITIONS = {
-        "pending": ["processing", "canceled"],
-        "processing": ["shipped", "canceled"],
+        "pending": ["processing"],
+        "processing": ["shipped"],
         "shipped": ["completed", "refunded"],
         "completed": [],
         "canceled": [],
@@ -248,6 +302,7 @@ class OrderCancellationView(APIView):
             # If the payment was online and already paid, mark it as refunded
             if order.payment_method == "online" and order.payment_status == "paid":
                 order.payment_status = "refunded"
+                Transaction.objects.filter(order=order, payment_status="paid").update(payment_status="refunded")
 
             order.save()
 
