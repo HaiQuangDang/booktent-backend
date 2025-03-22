@@ -33,25 +33,36 @@ class OrderViewSet(viewsets.ViewSet):
         if not cart or not cart.items.exists():
             return Response({"error": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
 
-        selected_item_ids = request.data.get("cart_item_ids", [])  # List of selected cart item IDs
+        selected_item_ids = request.data.get("cart_item_ids", [])  
         if not selected_item_ids:
             return Response({"error": "No items selected"}, status=status.HTTP_400_BAD_REQUEST)
-        payment_method = request.data.get("payment_method", "cod").lower() # Default to COD
+        
+        payment_method = request.data.get("payment_method", "cod").lower()
 
-        orders = []  # To store created orders
-        store_orders = {}  # Group selected cart items by store
+        orders = []
+        store_orders = {}  
 
-        # Filter only selected items
         selected_items = cart.items.filter(id__in=selected_item_ids)
         
         if not selected_items.exists():
             return Response({"error": "No valid items found"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Group selected items by store
+        # **Filter out books with insufficient stock**
+        valid_items = []
         for item in selected_items:
+            if item.book.stock_quantity >= item.quantity:
+                valid_items.append(item)
+            else:
+                print(f"Skipping {item.book.title} due to insufficient stock.")  # Debugging info
+
+        if not valid_items:
+            return Response({"error": "All selected books are out of stock"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Group valid items by store
+        for item in valid_items:
             store_orders.setdefault(item.book.store, []).append(item)
 
-        with transaction.atomic():  # Ensure atomicity
+        with transaction.atomic():
             for store, items in store_orders.items():
                 total_price = sum(item.total_price for item in items)
                 order = Order.objects.create(
@@ -59,7 +70,7 @@ class OrderViewSet(viewsets.ViewSet):
                     store=store,
                     total_price=total_price,
                     payment_method=payment_method,
-                    payment_status = "pending"
+                    payment_status="pending"
                 )
                 for item in items:
                     OrderItem.objects.create(
@@ -69,8 +80,12 @@ class OrderViewSet(viewsets.ViewSet):
                         price=item.price
                     )
 
-                # **Create a Transaction for this order**
-                admin_fee = total_price * Decimal("0.10")  # 10% fee
+                    # **Reduce book stock**
+                    item.book.stock_quantity -= item.quantity
+                    item.book.save()
+
+                # **Create Transaction**
+                admin_fee = total_price * Decimal("0.10")  
                 store_earnings = total_price - admin_fee
 
                 Transaction.objects.create(
@@ -80,16 +95,15 @@ class OrderViewSet(viewsets.ViewSet):
                     admin_fee=admin_fee,
                     store_earnings=store_earnings,
                     payment_method=payment_method,
-                    payment_status="pending"  # Will update after payment
+                    payment_status="pending"
                 )
                 orders.append(order)
-                
 
-            # Remove only the ordered items from the cart
-            selected_items.delete()
+            # Remove only successfully ordered items from the cart
+            valid_items_ids = [item.id for item in valid_items]
+            cart.items.filter(id__in=valid_items_ids).delete()
 
         return Response(OrderSerializer(orders, many=True).data, status=status.HTTP_201_CREATED)
-
 
     def list(self, request):
         """Get all user orders."""
@@ -298,6 +312,10 @@ class OrderCancellationView(APIView):
 
         with transaction.atomic():
             order.order_status = "canceled"
+            # **Restore stock for all books in the order**
+            for item in order.items.all():
+                item.book.stock_quantity += item.quantity
+                item.book.save()
 
             # If the payment was online and already paid, mark it as refunded
             if order.payment_method == "online" and order.payment_status == "paid":
