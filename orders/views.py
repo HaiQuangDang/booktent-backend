@@ -283,8 +283,15 @@ class UpdateOrderStatusView(APIView):
             return Response({"error": "Invalid status transition."}, status=status.HTTP_400_BAD_REQUEST)
 
         # ✅ Update status
-        order.order_status = new_status  # ✅ Fix `order_status`
-        order.save()
+        with transaction.atomic():
+            order.order_status = new_status  
+
+            # ✅ If marking a COD order as "completed", update payment status
+            if new_status == "completed" and order.payment_method == "cod":
+                order.payment_status = "paid"
+                Transaction.objects.filter(order=order).update(payment_status="paid")
+
+            order.save()
 
         return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
     
