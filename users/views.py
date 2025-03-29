@@ -32,14 +32,16 @@ class DeleteUserView(generics.DestroyAPIView):
             instance.delete()
             return
         
-        # Admins can delete regular users but NOT other superusers
+        # Superusers cannot delete themselves or other superusers
+        if instance.is_superuser:
+            raise PermissionDenied("Superusers cannot be deleted.")
+        
+        # Staff (Admins) can delete regular users
         if self.request.user.is_staff:
-            if instance.is_superuser:
-                raise PermissionDenied("Superusers cannot delete other superusers.")
             instance.delete()
             return
 
-        raise PermissionDenied("You can only delete your own account.")
+        raise PermissionDenied("You do not have permission to delete this user.")
 
 
 

@@ -3,8 +3,12 @@ from django.urls import path, include
 
 from django.conf import settings
 from django.conf.urls.static import static
+from .admin_views import admin_stats, recent_activity, earnings_stats
 
 urlpatterns = [
+    path("admin/stats/", admin_stats, name="admin-stats"),
+    path("admin/recent-activity/", recent_activity, name="admin-recent-activity"),
+    path("admin/earnings/", earnings_stats, name="admin-earnings"),
     path("admin/", admin.site.urls),
     path("authentication/", include("rest_framework.urls")),
     path("user/", include("users.urls")),

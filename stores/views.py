@@ -56,7 +56,7 @@ class MyStoreView(APIView):
             # return Response({"detail": "No store found"}, status=404)
             return Response({"detail": "No store found"})
         
-# Dashboard
+# Store Dashboard
 class StoreDashboardView(APIView):
     """Dashboard API for store owners to see an overview of their store"""
     permission_classes = [IsAuthenticated]
