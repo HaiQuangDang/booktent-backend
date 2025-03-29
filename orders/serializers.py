@@ -12,7 +12,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     total_price = serializers.ReadOnlyField()
+    customer_name = serializers.CharField(source="user.username", read_only=True)  # Get customer's name
+    store_name = serializers.CharField(source="store.name", read_only=True)  # Get store's name
 
     class Meta:
         model = Order
-        fields = ["id", "user", "order_status", "store", "items", "total_price", "payment_method", "payment_status", "created_at"]
+        fields = [
+            "id", "user", "customer_name", "order_status", "store", "store_name",
+            "items", "total_price", "payment_method", "payment_status", "created_at"
+        ]

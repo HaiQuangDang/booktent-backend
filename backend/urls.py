@@ -5,6 +5,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from .admin_views import admin_stats, recent_activity, earnings_stats
 from .admin_views import AdminBookListView, AdminUpdateBookStatusView, AdminDeleteBookView
+from .admin_views import AdminOrderListView, AdminOrderDetailView
 
 urlpatterns = [
     path("admin/stats/", admin_stats, name="admin-stats"),
@@ -13,6 +14,9 @@ urlpatterns = [
     path("admin/books/", AdminBookListView.as_view(), name="admin-books"),
     path("admin/books/<int:pk>/status/", AdminUpdateBookStatusView.as_view(), name="admin-update-book-status"),
     path("admin/books/<int:pk>/delete/", AdminDeleteBookView.as_view(), name="admin-delete-book"),
+    path("admin/orders/", AdminOrderListView.as_view(), name="admin-orders-list"),
+    path("admin/orders/<int:pk>/", AdminOrderDetailView.as_view(), name="admin-order-detail"),
+
 
     path("admin/", admin.site.urls),
     path("authentication/", include("rest_framework.urls")),

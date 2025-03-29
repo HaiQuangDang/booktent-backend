@@ -7,8 +7,10 @@ from rest_framework.permissions import IsAdminUser
 from django.utils.timezone import now
 from django.db.models.functions import TruncMonth
 from datetime import timedelta
+from django.shortcuts import get_object_or_404
 
 from books.serializers import BookSerializer
+from orders.serializers import OrderSerializer
 
 from stores.models import Store
 from books.models import Book
@@ -99,3 +101,15 @@ class AdminUpdateBookStatusView(generics.UpdateAPIView):
         return Response({"message": f"Book status updated to {new_status}"})
 
 
+class AdminOrderListView(generics.ListAPIView):
+    queryset = Order.objects.all().order_by("-created_at")
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.IsAdminUser]  # Only admins can access
+
+class AdminOrderDetailView(generics.RetrieveAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.IsAdminUser]  # Only admins can access
+
+    def get_object(self):
+        order_id = self.kwargs["pk"]
+        return get_object_or_404(Order, id=order_id)
