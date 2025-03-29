@@ -3,7 +3,7 @@ from django.urls import path, include
 
 from django.conf import settings
 from django.conf.urls.static import static
-from .admin_views import admin_stats, recent_activity, earnings_stats
+from .admin_views import admin_stats, recent_activity, earnings_stats, admin_fee_view
 from .admin_views import AdminBookListView, AdminUpdateBookStatusView, AdminDeleteBookView
 from .admin_views import AdminOrderListView, AdminOrderDetailView
 
@@ -16,6 +16,7 @@ urlpatterns = [
     path("admin/books/<int:pk>/delete/", AdminDeleteBookView.as_view(), name="admin-delete-book"),
     path("admin/orders/", AdminOrderListView.as_view(), name="admin-orders-list"),
     path("admin/orders/<int:pk>/", AdminOrderDetailView.as_view(), name="admin-order-detail"),
+    path("admin-fee/", admin_fee_view, name="admin-fee"),
 
 
     path("admin/", admin.site.urls),

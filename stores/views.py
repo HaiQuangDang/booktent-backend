@@ -72,7 +72,7 @@ class StoreDashboardView(APIView):
 
         # ✅ Total Earnings (only from completed orders)
         total_earnings = Transaction.objects.filter(
-            store=store, payment_status="paid"
+            store=store, status="completed"
         ).aggregate(total=Sum("store_earnings"))["total"] or Decimal("0.00")
 
         # ✅ Low Stock Books (stock < 5)
@@ -94,9 +94,9 @@ class StoreDashboardView(APIView):
 
         # ✅ Recent Transactions (last 5)
         recent_transactions = list(
-            Transaction.objects.filter(store=store, payment_status="paid")
+            Transaction.objects.filter(store=store, status="completed")
             .order_by("-created_at")[:5]
-            .values("id", "amount", "payment_status", "created_at")
+            .values("id", "amount", "status", "created_at")
         )
 
         # ✅ Return all data in one response

@@ -11,11 +11,12 @@ from django.shortcuts import get_object_or_404
 
 from books.serializers import BookSerializer
 from orders.serializers import OrderSerializer
+from transactions.serializers import SiteConfigSerializer
 
 from stores.models import Store
 from books.models import Book
 from orders.models import Order
-from transactions.models import Transaction
+from transactions.models import Transaction, SiteConfig
 
 @api_view(["GET"])
 @permission_classes([IsAdminUser])  # Only admins can access
@@ -113,3 +114,20 @@ class AdminOrderDetailView(generics.RetrieveAPIView):
     def get_object(self):
         order_id = self.kwargs["pk"]
         return get_object_or_404(Order, id=order_id)
+    
+
+@api_view(["GET", "PATCH"])
+@permission_classes([IsAdminUser])
+def admin_fee_view(request):
+    """Get or update the admin fee percentage"""
+    config = SiteConfig.objects.first()
+
+    if request.method == "PATCH":
+        serializer = SiteConfigSerializer(config, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+    serializer = SiteConfigSerializer(config)
+    return Response(serializer.data)

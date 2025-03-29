@@ -3,7 +3,7 @@ from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
-from transactions.models import Transaction 
+from transactions.models import Transaction, SiteConfig
 from .models import Order, OrderItem
 from cart.models import Cart, CartItem
 from books.models import Book
@@ -85,8 +85,12 @@ class OrderViewSet(viewsets.ViewSet):
                     item.book.save()
 
                 # **Create Transaction**
-                admin_fee = total_price * Decimal("0.10")  
+                admin_fee_percentage = SiteConfig.get_admin_fee()  # Fetch from DB
+                admin_fee = total_price * admin_fee_percentage
                 store_earnings = total_price - admin_fee
+                
+                # admin_fee = total_price * Decimal("0.10")  
+                # store_earnings = total_price - admin_fee
 
                 Transaction.objects.create(
                     order=order,
@@ -95,7 +99,7 @@ class OrderViewSet(viewsets.ViewSet):
                     admin_fee=admin_fee,
                     store_earnings=store_earnings,
                     payment_method=payment_method,
-                    payment_status="pending"
+                    status="pending"
                 )
                 orders.append(order)
 
@@ -227,7 +231,7 @@ def payment_success(request):
                     order.save()
 
                     # ✅ Update transactions for this order
-                    Transaction.objects.filter(order=order, payment_status="pending").update(payment_status="paid")
+                    Transaction.objects.filter(order=order, status="pending").update(status="completed")
 
             return Response({"message": "Payment verified and orders updated!"})
 
@@ -289,7 +293,18 @@ class UpdateOrderStatusView(APIView):
             # ✅ If marking a COD order as "completed", update payment status
             if new_status == "completed" and order.payment_method == "cod":
                 order.payment_status = "paid"
-                Transaction.objects.filter(order=order).update(payment_status="paid")
+                Transaction.objects.filter(order=order).update(status="completed")
+
+            # ✅ If marking a COD order as "refunded"
+            if new_status == "refunded" and order.payment_method == "cod":
+                order.payment_status = "failed"
+                Transaction.objects.filter(order=order).update(status="failed")
+
+            # ✅ If marking a online order as "refunded"
+            if new_status == "refunded" and order.payment_method == "online":
+                order.payment_status = "refunded"
+                Transaction.objects.filter(order=order).update(status="refunded")
+
 
             order.save()
 
@@ -327,7 +342,12 @@ class OrderCancellationView(APIView):
             # If the payment was online and already paid, mark it as refunded
             if order.payment_method == "online" and order.payment_status == "paid":
                 order.payment_status = "refunded"
-                Transaction.objects.filter(order=order, payment_status="paid").update(payment_status="refunded")
+                Transaction.objects.filter(order=order, status="completed").update(status="refunded")
+
+            # If the payment was cod mark it as failed
+            if order.payment_method == "cod" and order.payment_status == "pending":
+                order.payment_status = "failed"
+                Transaction.objects.filter(order=order, status="pending").update(status="failed")
 
             order.save()
 
