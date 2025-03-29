@@ -1,8 +1,9 @@
 from rest_framework import viewsets, permissions, generics, status
 from django.core.exceptions import PermissionDenied
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from books.models import Author, Genre, Book
-from books.serializers import AuthorSerializer, GenreSerializer, BookSerializer
+from books.serializers import AuthorSerializer, GenreSerializer, BookSerializer, AuthorBookSerializer
 
 
 
@@ -64,12 +65,33 @@ class ApprovedBookListView(generics.ListAPIView):
     permission_classes = []  # Anyone can access
 
 
-class AuthorViewSet(viewsets.ReadOnlyModelViewSet):  # Read-Only
+
+class IsAdminOrReadOnly(permissions.BasePermission):
+    """Custom permission to allow only admins to modify data."""
+
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:  # Allow read-only access to everyone
+            return True
+        return request.user and request.user.is_staff  # Only admins can modify
+
+class AuthorViewSet(viewsets.ModelViewSet):  
     queryset = Author.objects.all()
     serializer_class = AuthorSerializer
-    permission_classes = [permissions.AllowAny]  # Anyone can view authors
+    permission_classes = [IsAdminOrReadOnly]  # Only admins can modify authors
 
-class GenreViewSet(viewsets.ModelViewSet):  # Read-Only
+class GenreViewSet(viewsets.ModelViewSet):  # Full CRUD
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
-    permission_classes = [permissions.AllowAny]  # Anyone can view genres
+    permission_classes = [IsAdminOrReadOnly]  # Read for all, modify for admins only
+
+class AuthorBooksView(generics.RetrieveAPIView):
+    queryset = Author.objects.all()
+    serializer_class = AuthorBookSerializer
+    lookup_field = 'id'  # URL will use `id`
+    permission_classes = [permissions.AllowAny] 
+
+class GenreBooksView(generics.RetrieveAPIView):
+    queryset = Genre.objects.all()
+    serializer_class = AuthorBookSerializer
+    lookup_field = 'id'  # URL will use `id`
+    permission_classes = [permissions.AllowAny] 

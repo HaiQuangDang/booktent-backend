@@ -59,23 +59,33 @@ class BookSerializer(serializers.ModelSerializer):
 
 
 class AuthorSerializer(serializers.ModelSerializer):
-    books = serializers.SerializerMethodField()  # Use SerializerMethodField to filter books
 
     class Meta:
         model = Author
         fields = '__all__'
 
+class AuthorBookSerializer(serializers.ModelSerializer):
+    books = serializers.SerializerMethodField()  
+
+    class Meta:
+        model = Author
+        fields = ['id', 'name', 'books']
     def get_books(self, obj):
-        approved_books = obj.books.filter(status="approved")  # Get only approved books
+        approved_books = obj.books.filter(status="approved")  
         return BookSerializer(approved_books, many=True).data
 
 class GenreSerializer(serializers.ModelSerializer):
-    books = serializers.SerializerMethodField()
-
+    
     class Meta:
         model = Genre
         fields = '__all__'
         
+class GenreBookSerializer(serializers.ModelSerializer):
+    books = serializers.SerializerMethodField()
+    class Meta:
+        model = Genre
+        fields = ['id', 'name', 'books']
+        
     def get_books(self, obj):
-        approved_books = obj.books.filter(status="approved")  # Get only approved books
+        approved_books = obj.books.filter(status="approved")
         return BookSerializer(approved_books, many=True).data
