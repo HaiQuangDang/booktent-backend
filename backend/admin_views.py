@@ -1,13 +1,14 @@
 from django.contrib.auth.models import User
 from django.db.models import Sum
+from rest_framework import generics, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from django.utils.timezone import now
 from django.db.models.functions import TruncMonth
-from django.db.models import Count
 from datetime import timedelta
 
+from books.serializers import BookSerializer
 
 from stores.models import Store
 from books.models import Book
@@ -71,5 +72,30 @@ def earnings_stats(request):
         "earnings_per_month": list(earnings_per_month),
     }
     return Response(data)
+
+class AdminBookListView(generics.ListAPIView):
+    queryset = Book.objects.all().order_by("-created_at")
+    serializer_class = BookSerializer
+    permission_classes = [permissions.IsAdminUser]  # Only admin can access
+
+class AdminDeleteBookView(generics.DestroyAPIView):
+    queryset = Book.objects.all()
+    permission_classes = [permissions.IsAdminUser]  
+
+class AdminUpdateBookStatusView(generics.UpdateAPIView):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+    permission_classes = [permissions.IsAdminUser]  # Only admin can update
+
+    def update(self, request, *args, **kwargs):
+        book = self.get_object()
+        new_status = request.data.get("status")
+
+        if new_status not in ["pending", "approved", "rejected"]:
+            return Response({"error": "Invalid status."}, status=400)
+
+        book.status = new_status
+        book.save()
+        return Response({"message": f"Book status updated to {new_status}"})
 
 
