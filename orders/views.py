@@ -169,7 +169,7 @@ class StripeCheckoutSessionView(APIView):
                     "price_data": {
                         "currency": "usd",
                         "product_data": {
-                            "name": f"Orders {', '.join(str(order.id) for order in orders)}"
+                            "name": f"Orders ID {', '.join(str(order.id) for order in orders)}"
                         },
                         "unit_amount": int(total_price * 100),  # Convert to cents
                     },

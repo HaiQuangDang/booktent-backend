@@ -64,28 +64,77 @@ class AuthorSerializer(serializers.ModelSerializer):
         model = Author
         fields = '__all__'
 
+# class AuthorBookSerializer(serializers.ModelSerializer):
+#     books = serializers.SerializerMethodField()  
+
+#     class Meta:
+#         model = Author
+#         fields = ['id', 'name', 'books']
+#     def get_books(self, obj):
+#         approved_books = obj.books.filter(status="approved")  
+#         return BookSerializer(approved_books, many=True).data
 class AuthorBookSerializer(serializers.ModelSerializer):
-    books = serializers.SerializerMethodField()  
+    books = serializers.SerializerMethodField()
 
     class Meta:
         model = Author
         fields = ['id', 'name', 'books']
+
     def get_books(self, obj):
-        approved_books = obj.books.filter(status="approved")  
-        return BookSerializer(approved_books, many=True).data
+        try:
+            request = self.context.get("request")
+            approved_books = obj.books.filter(status="approved")
+            if not approved_books.exists():
+                return []
+            return BookSerializer(
+                approved_books,
+                many=True,
+                context={"request": request}
+            ).data
+        except Exception as e:
+            return {"error": f"Error retrieving books: {str(e)}"}
 
 class GenreSerializer(serializers.ModelSerializer):
-    
+
     class Meta:
         model = Genre
         fields = '__all__'
         
+# class GenreBookSerializer(serializers.ModelSerializer):
+#     books = serializers.SerializerMethodField()
+#     class Meta:
+#         model = Genre
+#         fields = ['id', 'name', 'books']
+        
+#     def get_books(self, obj):
+#         approved_books = obj.books.filter(status="approved")
+#         return BookSerializer(approved_books, many=True).data
+
 class GenreBookSerializer(serializers.ModelSerializer):
     books = serializers.SerializerMethodField()
+
     class Meta:
         model = Genre
         fields = ['id', 'name', 'books']
-        
+
     def get_books(self, obj):
-        approved_books = obj.books.filter(status="approved")
-        return BookSerializer(approved_books, many=True).data
+        try:
+            # Get request from context
+            request = self.context.get("request")
+            
+            # Filter approved books
+            approved_books = obj.books.filter(status="approved")
+            
+            # Check if books exist
+            if not approved_books.exists():
+                return []
+                
+            # Serialize the books with proper context
+            return BookSerializer(
+                approved_books,
+                many=True,
+                context={"request": request}
+            ).data
+        except Exception as e:
+            # Handle any unexpected errors
+            return {"error": f"Error retrieving books: {str(e)}"}
