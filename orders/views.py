@@ -137,13 +137,22 @@ class OrderViewSet(viewsets.ViewSet):
 
         store = user.store  # Get the store owned by the user
 
+        # Get filter parameters from query
+        order_status = request.query_params.get("order_status", None)
+        payment_method = request.query_params.get("payment_method", None)
+
         # Get orders that contain books from this store
         orders = Order.objects.filter(items__book__store=store).distinct()
 
-        # Serialize and return the orders
-        serializer = OrderSerializer(orders, many=True)  # Use OrderSerializer explicitly
-        return Response(serializer.data)
+        # Apply filters if provided
+        if order_status:
+            orders = orders.filter(order_status=order_status)
+        if payment_method:
+            orders = orders.filter(payment_method=payment_method)
 
+        # Serialize and return the orders
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data)
 
 class StripeCheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]

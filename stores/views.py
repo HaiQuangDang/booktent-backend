@@ -51,58 +51,62 @@ class MyStoreView(APIView):
         """Get the store owned by the authenticated user"""
         try:
             store = Store.objects.get(owner=request.user)
-            return Response(StoreSerializer(store).data)
+            # ✅ Pass context={"request": request}
+            return Response(StoreSerializer(store, context={"request": request}).data)
         except Store.DoesNotExist:
-            # return Response({"detail": "No store found"}, status=404)
             return Response({"detail": "No store found"})
-        
+
 # Store Dashboard
 class StoreDashboardView(APIView):
     """Dashboard API for store owners to see an overview of their store"""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # ✅ Ensure the user is a store owner
+        # Ensure the user is a store owner
         store = Store.objects.filter(owner=request.user).first()
         if not store:
             return Response({"error": "You do not own a store."}, status=403)
 
-        # ✅ Total Orders
+        # Total Orders
         total_orders = Order.objects.filter(store=store).count()
 
-        # ✅ Total Earnings (only from completed orders)
+        # Total Earnings (only from completed orders)
         total_earnings = Transaction.objects.filter(
             store=store, status="completed"
         ).aggregate(total=Sum("store_earnings"))["total"] or Decimal("0.00")
 
-        # ✅ Low Stock Books (stock < 5)
+        # Total Books (all books in store)
+        total_books = store.books.count()
+
+        # Low Stock Books (stock < 5)
         low_stock_books = list(
             store.books.filter(stock_quantity__lt=5).values("title", "stock_quantity")
         )
 
-        # ✅ Recent Orders (last 5)
+        # Recent Orders (last 5)
         recent_orders = list(
             Order.objects.filter(store=store)
             .order_by("-created_at")[:5]
             .values("id", "total_price", "order_status", "created_at")
         )
 
-        # ✅ Recent Books (last 5 added)
+        # Recent Books (last 5 added)
         recent_books = list(
             store.books.order_by("-created_at")[:5].values("id", "title", "price", "stock_quantity")
         )
 
-        # ✅ Recent Transactions (last 5)
+        # Recent Transactions (last 5)
         recent_transactions = list(
             Transaction.objects.filter(store=store, status="completed")
             .order_by("-created_at")[:5]
             .values("id", "amount", "status", "created_at")
         )
 
-        # ✅ Return all data in one response
+        # Return all data in one response
         return Response({
             "total_orders": total_orders,
-            "total_earnings": total_earnings,
+            "total_earnings": float(total_earnings),  # Convert Decimal to float for JSON
+            "total_books": total_books,
             "low_stock_books": low_stock_books,
             "recent_orders": recent_orders,
             "recent_books": recent_books,

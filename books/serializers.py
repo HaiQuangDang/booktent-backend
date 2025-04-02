@@ -63,16 +63,7 @@ class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Author
         fields = '__all__'
-
-# class AuthorBookSerializer(serializers.ModelSerializer):
-#     books = serializers.SerializerMethodField()  
-
-#     class Meta:
-#         model = Author
-#         fields = ['id', 'name', 'books']
-#     def get_books(self, obj):
-#         approved_books = obj.books.filter(status="approved")  
-#         return BookSerializer(approved_books, many=True).data
+        
 class AuthorBookSerializer(serializers.ModelSerializer):
     books = serializers.SerializerMethodField()
 

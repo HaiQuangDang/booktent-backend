@@ -18,10 +18,24 @@ class TransactionListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        # Base queryset based on user role
         if user.is_staff:
-            return Transaction.objects.all()  # Admin gets all
-        return Transaction.objects.filter(store__owner=user)  # Store owner gets only theirs
+            queryset = Transaction.objects.all()  # Admin gets all
+        else:
+            queryset = Transaction.objects.filter(store__owner=user)  # Store owner gets theirs
 
+        # Apply filters from query parameters
+        status = self.request.query_params.get("status", None)
+        payment_method = self.request.query_params.get("payment_method", None)
+
+        if status:
+            queryset = queryset.filter(status=status)
+        if payment_method:
+            queryset = queryset.filter(payment_method=payment_method)
+
+        # Default sorting by created_at descending (newest first)
+        return queryset.order_by("-created_at")
+    
 class TransactionDetailView(generics.RetrieveAPIView):
     """Allows admin and store owners to see transaction details."""
     serializer_class = TransactionSerializer
