@@ -1,20 +1,21 @@
 from django.contrib.auth.models import User
 from django.db.models import Sum
-from rest_framework import generics, permissions
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import generics, permissions, viewsets
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from django.utils.timezone import now
 from django.db.models.functions import TruncMonth
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
+from django.db.utils import IntegrityError
 
-from books.serializers import BookSerializer
+from books.serializers import BookSerializer, GenreRequestSerializer
 from orders.serializers import OrderSerializer
 from transactions.serializers import SiteConfigSerializer
 
 from stores.models import Store
-from books.models import Book
+from books.models import Book, GenreRequest, Genre
 from orders.models import Order
 from transactions.models import Transaction, SiteConfig
 
@@ -131,3 +132,40 @@ def admin_fee_view(request):
 
     serializer = SiteConfigSerializer(config)
     return Response(serializer.data)
+
+class GenreRequestAdminViewSet(viewsets.ModelViewSet):
+    queryset = GenreRequest.objects.all()
+    serializer_class = GenreRequestSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        genre_request = self.get_object()
+        if genre_request.status != "pending":
+            return Response({"error": "Already processed"}, status=400)
+        
+        try:
+            # Create the Genre
+            Genre.objects.create(
+                name=genre_request.name,
+                description=genre_request.description or ""
+            )
+            # Update the request
+            genre_request.status = "approved"
+            genre_request.reviewed_at = now()
+            genre_request.save()
+            return Response({"status": "approved"})
+        except IntegrityError:  # This was catching the wrong one
+            return Response({"error": "Genre name already exists"}, status=400)
+        except Exception as e:
+            return Response({"error": f"Unexpected error: {str(e)}"}, status=500)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        genre_request = self.get_object()
+        if genre_request.status != "pending":
+            return Response({"error": "Already processed"}, status=400)
+        genre_request.status = "rejected"
+        genre_request.reviewed_at = now()
+        genre_request.save()
+        return Response({"status": "rejected"})

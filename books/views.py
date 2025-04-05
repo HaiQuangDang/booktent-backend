@@ -2,16 +2,24 @@ from rest_framework import viewsets, permissions, generics, status
 from django.core.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from books.models import Author, Genre, Book
-from books.serializers import AuthorSerializer, GenreSerializer, BookSerializer, AuthorBookSerializer
-
-
+from books.models import Author, Genre, Book, GenreRequest
+from books.serializers import AuthorSerializer, GenreSerializer, BookSerializer, AuthorBookSerializer, GenreBookSerializer, GenreRequestSerializer
 
 class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
     permission_classes = [permissions.AllowAny]  # <-- Allow anyone to access
 
+    def perform_create(self, serializer):
+        if (
+            self.request.user.is_authenticated 
+            and hasattr(self.request.user, "store") 
+            and self.request.user.store.status == "active"
+        ):
+            serializer.save(store=self.request.user.store, status="pending")
+        else:
+            raise PermissionDenied("Only store owners with an active store can add books.")
+        
     def get_queryset(self):
         user = self.request.user
 
@@ -26,18 +34,7 @@ class BookViewSet(viewsets.ModelViewSet):
         # Guests and normal users see only approved books
         return Book.objects.filter(status='approved', store__status='active')
 
-    def perform_create(self, serializer):
-        """Only store owners with an active store can add books."""
-        if (
-            self.request.user.is_authenticated 
-            and hasattr(self.request.user, "store") 
-            and self.request.user.store.status == "active"
-        ):
-            serializer.save(store=self.request.user.store, status="pending")
-        else:
-            raise PermissionDenied("Only store owners with an active store can add books.")
-
-        
+ 
     # Update
     def update(self, request, *args, **kwargs):
         response = super().update(request, *args, **kwargs)
@@ -92,6 +89,21 @@ class AuthorBooksView(generics.RetrieveAPIView):
 
 class GenreBooksView(generics.RetrieveAPIView):
     queryset = Genre.objects.all()
-    serializer_class = AuthorBookSerializer
+    serializer_class = GenreBookSerializer
     lookup_field = 'id'  # URL will use `id`
     permission_classes = [permissions.AllowAny] 
+
+class GenreRequestViewSet(viewsets.ModelViewSet):
+    queryset = GenreRequest.objects.all()
+    serializer_class = GenreRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return self.queryset.filter(requested_by=self.request.user)
+
+    def perform_create(self, serializer):
+        if not hasattr(self.request.user, "store") or not self.request.user.store:
+            raise permissions.PermissionDenied("Only store owners can request new genres.")
+        if self.request.user.store.status != "active":
+            raise permissions.PermissionDenied("You need an active store to request new genres.")
+        serializer.save()

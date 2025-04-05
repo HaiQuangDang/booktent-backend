@@ -1,12 +1,15 @@
 from django.contrib import admin
 from django.urls import path, include
-
+from rest_framework.routers import DefaultRouter
 from django.conf import settings
 from django.conf.urls.static import static
 from .admin_views import admin_stats, recent_activity, earnings_stats, admin_fee_view
 from .admin_views import AdminBookListView, AdminUpdateBookStatusView, AdminDeleteBookView
 from .admin_views import AdminOrderListView, AdminOrderDetailView
+from .admin_views import GenreRequestAdminViewSet
 
+adminGenresRequest = DefaultRouter()
+adminGenresRequest.register(r'admin/genres-request', GenreRequestAdminViewSet, basename="genre-request-admin")
 urlpatterns = [
     path("admin/stats/", admin_stats, name="admin-stats"),
     path("admin/recent-activity/", recent_activity, name="admin-recent-activity"),
@@ -17,7 +20,7 @@ urlpatterns = [
     path("admin/orders/", AdminOrderListView.as_view(), name="admin-orders-list"),
     path("admin/orders/<int:pk>/", AdminOrderDetailView.as_view(), name="admin-order-detail"),
     path("admin-fee/", admin_fee_view, name="admin-fee"),
-
+    path('', include(adminGenresRequest.urls)),
 
     path("admin/", admin.site.urls),
     path("authentication/", include("rest_framework.urls")),
