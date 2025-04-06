@@ -7,7 +7,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     # avatar = serializers.ImageField(required=False)  # Allow file uploads
     class Meta:
         model = Profile
-        fields = ["avatar", "address"]
+        fields = ["avatar", "address", "phone_number"]  # ✅ Added phone_number
 
 class UserSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(required=False)
@@ -39,6 +39,8 @@ class UserSerializer(serializers.ModelSerializer):
             user.profile.avatar = profile_data["avatar"]
         if "address" in profile_data:
             user.profile.address = profile_data["address"]
+        if "phone_number" in profile_data:  # ✅ Add phone_number on creation
+            user.profile.phone_number = profile_data["phone_number"]
         user.profile.save()
         
         return user
@@ -66,6 +68,8 @@ class UserSerializer(serializers.ModelSerializer):
             instance.profile.avatar = profile_data["avatar"]
         if "address" in profile_data:
             instance.profile.address = profile_data["address"]
+        if "phone_number" in profile_data:  # ✅ Add phone_number on update
+            instance.profile.phone_number = profile_data["phone_number"]
         
         if profile_data:
             instance.profile.save()

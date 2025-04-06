@@ -104,6 +104,8 @@ class StoreDashboardView(APIView):
 
         # Return all data in one response
         return Response({
+            "store_name": store.name,
+            "store_status": store.status,
             "total_orders": total_orders,
             "total_earnings": float(total_earnings),  # Convert Decimal to float for JSON
             "total_books": total_books,
