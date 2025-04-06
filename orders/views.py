@@ -38,6 +38,10 @@ class OrderViewSet(viewsets.ViewSet):
             return Response({"error": "No items selected"}, status=status.HTTP_400_BAD_REQUEST)
         
         payment_method = request.data.get("payment_method", "cod").lower()
+        address = request.data.get("address", None)
+        phone = request.data.get("phone", None)
+        if not address or not phone:
+            return Response({"error": "Address and phone are required"}, status=status.HTTP_400_BAD_REQUEST)
 
         orders = []
         store_orders = {}  
@@ -70,7 +74,9 @@ class OrderViewSet(viewsets.ViewSet):
                     store=store,
                     total_price=total_price,
                     payment_method=payment_method,
-                    payment_status="pending"
+                    payment_status="pending",
+                    address=address,
+                    phone=phone,
                 )
                 for item in items:
                     OrderItem.objects.create(

@@ -6,12 +6,12 @@ from django.conf import settings
 
 class Order(models.Model):
     ORDER_STATUS = [
-        ("pending", "Pending"),        
-        ("processing", "Processing"),  
-        ("shipped", "Shipped"),        
-        ("completed", "Completed"),    
-        ("canceled", "Canceled"),      
-        ("refunded", "Refunded"),      
+        ("pending", "Pending"),
+        ("processing", "Processing"),
+        ("shipped", "Shipped"),
+        ("completed", "Completed"),
+        ("canceled", "Canceled"),
+        ("refunded", "Refunded"),
     ]
 
     PAYMENT_METHODS = [
@@ -22,22 +22,25 @@ class Order(models.Model):
     PAYMENT_STATUS = [
         ('pending', 'Pending'),
         ('paid', 'Paid'),
-        ('failed', 'Failed'),   
+        ('failed', 'Failed'),
         ('refunded', 'Refunded'),
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE)  
+    store = models.ForeignKey(Store, on_delete=models.CASCADE)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHODS, default='cod')
     payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS, default='pending')
     stripe_session_id = models.CharField(max_length=255, blank=True, null=True)
     order_status = models.CharField(max_length=10, choices=ORDER_STATUS, default='pending')
+    address = models.TextField(blank=True, null=True)  # 🆕 Added address field
+    phone = models.CharField(max_length=20, blank=True, null=True)  # 🆕 Added phone field
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         store_name = self.store.name if self.store else "No Store"
         return f"Order {self.id} - {store_name} - {self.order_status}"
+
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
