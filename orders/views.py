@@ -202,29 +202,6 @@ class StripeCheckoutSessionView(APIView):
         return Response({"session_id": session.id, "url": session.url}, status=status.HTTP_200_OK)
 
 
-# @api_view(["POST"])
-# def payment_success(request):
-#     """Verify Stripe payment and update order status."""
-#     session_id = request.data.get("session_id")
-#     print(session_id)
-#     try:
-#         session = stripe.checkout.Session.retrieve(session_id)
-#         print(session)
-#         if session.payment_status == "paid":
-#             order = Order.objects.filter(user=request.user, payment_status="pending").first()
-#             if order:
-#                 order.payment_status = "paid"
-#                 order.save()
-#                 # ✅ Update the related transaction status to 'COMPLETED'
-#                 transaction = Transaction.objects.filter(order=order, payment_status="pending").first()
-#                 if transaction:
-#                     transaction.payment_status = "paid"
-#                     transaction.save()
-#             return Response({"message": "Payment verified!"})
-#     except stripe.error.StripeError as e:
-#         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-#     return Response({"error": "Payment verification failed."}, status=status.HTTP_400_BAD_REQUEST)
 @api_view(["POST"])
 def payment_success(request):
     """Verify Stripe payment and update order & transaction status."""

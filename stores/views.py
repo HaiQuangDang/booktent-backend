@@ -11,16 +11,24 @@ from django.db.models import Sum, Count
 from decimal import Decimal
 from orders.models import Order
 from transactions.models import Transaction
+from backend.admin_views import StandardResultsSetPagination
 
 class StoreListCreateView(generics.ListCreateAPIView):
-    queryset = Store.objects.all()
     serializer_class = StoreSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    pagination_class = StandardResultsSetPagination  # Add pagination class
+
+    def get_queryset(self):
+        queryset = Store.objects.all().order_by("-created_at")
+        status = self.request.query_params.get("status")
+        if status:
+            queryset = queryset.filter(status=status)
+        return queryset
 
     def perform_create(self, serializer):
         if Store.objects.filter(owner=self.request.user).exists():
             raise serializers.ValidationError({"detail": "You already have a store."})
-        serializer.save(owner=self.request.user)  # Set the store owner to the logged-in user
+        serializer.save(owner=self.request.user) # Set the store owner to the logged-in user
 
 class StoreDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Store.objects.all()

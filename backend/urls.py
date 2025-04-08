@@ -6,10 +6,11 @@ from django.conf.urls.static import static
 from .admin_views import admin_stats, recent_activity, earnings_stats, admin_fee_view
 from .admin_views import AdminBookListView, AdminUpdateBookStatusView, AdminDeleteBookView
 from .admin_views import AdminOrderListView, AdminOrderDetailView
-from .admin_views import GenreRequestAdminViewSet
+from .admin_views import GenreRequestAdminViewSet, recent_authors, genre_requests  # Import new views
 
 adminGenresRequest = DefaultRouter()
 adminGenresRequest.register(r'admin/genres-request', GenreRequestAdminViewSet, basename="genre-request-admin")
+
 urlpatterns = [
     path("admin/stats/", admin_stats, name="admin-stats"),
     path("admin/recent-activity/", recent_activity, name="admin-recent-activity"),
@@ -20,6 +21,8 @@ urlpatterns = [
     path("admin/orders/", AdminOrderListView.as_view(), name="admin-orders-list"),
     path("admin/orders/<int:pk>/", AdminOrderDetailView.as_view(), name="admin-order-detail"),
     path("admin-fee/", admin_fee_view, name="admin-fee"),
+    path("admin/recent-authors/", recent_authors, name="admin-recent-authors"),
+    path("admin/recent-genre-requests/", genre_requests, name="admin-genre-requests"),
     path('', include(adminGenresRequest.urls)),
 
     path("admin/", admin.site.urls),
@@ -32,6 +35,4 @@ urlpatterns = [
     path("transactions/", include("transactions.urls"))
 ]
 
-
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-from django.urls import include, path

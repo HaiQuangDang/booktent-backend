@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from .permissions import IsAdminUser
 from django.core.exceptions import PermissionDenied
+from backend.admin_views import StandardResultsSetPagination
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -17,7 +18,7 @@ class CreateUserView(generics.CreateAPIView):
 class UserDetailView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]  # Only logged-in users can access
+    permission_classes = [IsAuthenticated]  
     def get_serializer_context(self):
         return {"request": self.request}  # Pass request context
 
@@ -58,10 +59,11 @@ class AdminCheckView(APIView):
         })
 
 
-class ListUsersView(generics.ListAPIView):# Only admins can access
-    queryset = User.objects.all()
+class ListUsersView(generics.ListAPIView):  # Only admins can access
+    queryset = User.objects.all().order_by('-date_joined')  # optional: sort newest first
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]  
+    permission_classes = [permissions.IsAdminUser]
+    pagination_class = StandardResultsSetPagination
 
 
 class UserMeView(APIView):

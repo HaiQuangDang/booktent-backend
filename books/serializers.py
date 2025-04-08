@@ -39,8 +39,15 @@ class BookSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "store_name", "created_at", "updated_at", "status"]
 
+    # def validate_store(self, value):
+    #     request = self.context["request"]
+    #     if not Store.objects.filter(id=value.id, owner=request.user).exists():
+    #         raise serializers.ValidationError("You can only add books to your own store.")
+    #     return value
     def validate_store(self, value):
         request = self.context["request"]
+        if request.user.is_staff:
+            return value  # Admins can update any store
         if not Store.objects.filter(id=value.id, owner=request.user).exists():
             raise serializers.ValidationError("You can only add books to your own store.")
         return value

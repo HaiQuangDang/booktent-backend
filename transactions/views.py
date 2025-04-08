@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions
 from transactions.models import Transaction
 from transactions.serializers import TransactionSerializer
+from backend.admin_views import StandardResultsSetPagination
 
 class IsAdminOrStoreOwner(permissions.BasePermission):
     """Allow only admin or store owners to access transactions."""
@@ -15,6 +16,7 @@ class TransactionListView(generics.ListAPIView):
     """Admin gets all transactions, store owners get their own transactions."""
     serializer_class = TransactionSerializer
     permission_classes = [IsAdminOrStoreOwner]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user

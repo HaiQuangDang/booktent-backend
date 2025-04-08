@@ -72,12 +72,12 @@ class IsAdminOrReadOnly(permissions.BasePermission):
         return request.user and request.user.is_staff  # Only admins can modify
 
 class AuthorViewSet(viewsets.ModelViewSet):  
-    queryset = Author.objects.all()
+    queryset = Author.objects.all().order_by("-created_at")
     serializer_class = AuthorSerializer
     permission_classes = [IsAdminOrReadOnly]  # Only admins can modify authors
 
 class GenreViewSet(viewsets.ModelViewSet):  # Full CRUD
-    queryset = Genre.objects.all()
+    queryset = Genre.objects.all().order_by("-created_at")
     serializer_class = GenreSerializer
     permission_classes = [IsAdminOrReadOnly]  # Read for all, modify for admins only
 

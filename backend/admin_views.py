@@ -1,23 +1,31 @@
 from django.contrib.auth.models import User
 from django.db.models import Sum
-from rest_framework import generics, permissions, viewsets
+from rest_framework import generics, permissions, viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from django.utils.timezone import now
+from django.utils import timezone
 from django.db.models.functions import TruncMonth
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
 from django.db.utils import IntegrityError
-
+from django.db.models import Count
 from books.serializers import BookSerializer, GenreRequestSerializer
 from orders.serializers import OrderSerializer
 from transactions.serializers import SiteConfigSerializer
+from rest_framework.pagination import PageNumberPagination
 
 from stores.models import Store
-from books.models import Book, GenreRequest, Genre
+from books.models import Book, GenreRequest, Genre, Author
 from orders.models import Order
 from transactions.models import Transaction, SiteConfig
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 
 @api_view(["GET"])
 @permission_classes([IsAdminUser])  # Only admins can access
@@ -34,7 +42,7 @@ def admin_stats(request):
     return Response(stats)
 
 @api_view(["GET"])
-@permission_classes([IsAdminUser])  # Only admins can access
+@permission_classes([IsAdminUser]) 
 def recent_activity(request):
     activity = {
         "pending_stores": list(Store.objects.filter(status="pending").order_by("-created_at")[:5].values("id", "name", "owner__username", "created_at")),
@@ -44,24 +52,27 @@ def recent_activity(request):
     }
     return Response(activity)
 
-from django.utils.timezone import now
-from django.db.models.functions import TruncMonth
-from django.db.models import Count
-
 @api_view(["GET"])
-@permission_classes([IsAdminUser])  # Only admins can access
+@permission_classes([IsAdminUser])
 def earnings_stats(request):
-    today = now().date()
-    first_day_this_month = today.replace(day=1)
-    first_day_last_month = (first_day_this_month - timedelta(days=1)).replace(day=1)
+    today = timezone.now()  # Aware datetime
+    first_day_this_month = timezone.datetime(today.year, today.month, 1, tzinfo=timezone.get_default_timezone())
+    first_day_last_month = timezone.datetime(
+        (today.replace(day=1) - timedelta(days=1)).year,
+        (today.replace(day=1) - timedelta(days=1)).month,
+        1,
+        tzinfo=timezone.get_default_timezone()
+    )
 
-    # Earnings for this month
-    total_earnings_this_month = Transaction.objects.filter(created_at__gte=first_day_this_month).aggregate(Sum("admin_fee"))["admin_fee__sum"] or 0
+    total_earnings_this_month = Transaction.objects.filter(
+        created_at__gte=first_day_this_month
+    ).aggregate(Sum("admin_fee"))["admin_fee__sum"] or 0
 
-    # Earnings for last month
-    total_earnings_last_month = Transaction.objects.filter(created_at__gte=first_day_last_month, created_at__lt=first_day_this_month).aggregate(Sum("admin_fee"))["admin_fee__sum"] or 0
+    total_earnings_last_month = Transaction.objects.filter(
+        created_at__gte=first_day_last_month, 
+        created_at__lt=first_day_this_month
+    ).aggregate(Sum("admin_fee"))["admin_fee__sum"] or 0
 
-    # Earnings per month (last 6 months)
     earnings_per_month = (
         Transaction.objects
         .annotate(month=TruncMonth("created_at"))
@@ -77,10 +88,39 @@ def earnings_stats(request):
     }
     return Response(data)
 
+# View to get recently added authors (added in the last 7 days)
+@api_view(["GET"])
+@permission_classes([IsAdminUser])  # Only admins can access
+def recent_authors(request):
+    seven_days_ago = timezone.now() - timedelta(days=7)
+    authors = Author.objects.filter(created_at__gte=seven_days_ago).order_by("-created_at")
+    author_data = authors.values("id", "name", "created_at")
+    return Response({"recent_authors": list(author_data)})
+
+
+# View to get requested genres with their status
+@api_view(["GET"])
+@permission_classes([IsAdminUser])  # Only admins can access
+def genre_requests(request):
+    genre_requests = GenreRequest.objects.all().order_by("-created_at")
+    genre_request_data = genre_requests.values("id", "name", "status", "requested_by__username", "created_at")
+    return Response({"genre_requests": list(genre_request_data)})
+
 class AdminBookListView(generics.ListAPIView):
     queryset = Book.objects.all().order_by("-created_at")
     serializer_class = BookSerializer
-    permission_classes = [permissions.IsAdminUser]  # Only admin can access
+    permission_classes = [permissions.IsAdminUser]
+    pagination_class = StandardResultsSetPagination  # Apply custom pagination
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Filter by status if the status is provided in the request
+        status = self.request.query_params.get("status", None)
+        if status in ["pending", "approved", "rejected"]:
+            queryset = queryset.filter(status=status)
+
+        return queryset
 
 class AdminDeleteBookView(generics.DestroyAPIView):
     queryset = Book.objects.all()
@@ -101,12 +141,26 @@ class AdminUpdateBookStatusView(generics.UpdateAPIView):
         book.status = new_status
         book.save()
         return Response({"message": f"Book status updated to {new_status}"})
-
-
+    
 class AdminOrderListView(generics.ListAPIView):
-    queryset = Order.objects.all().order_by("-created_at")
     serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAdminUser]  # Only admins can access
+    permission_classes = [permissions.IsAdminUser]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        queryset = Order.objects.all().order_by("-created_at")
+
+        # Manual filters
+        order_status = self.request.query_params.get("order_status")
+        payment_method = self.request.query_params.get("payment_method")
+
+        if order_status:
+            queryset = queryset.filter(order_status=order_status)
+
+        if payment_method:
+            queryset = queryset.filter(payment_method=payment_method)
+
+        return queryset
 
 class AdminOrderDetailView(generics.RetrieveAPIView):
     serializer_class = OrderSerializer
@@ -169,3 +223,4 @@ class GenreRequestAdminViewSet(viewsets.ModelViewSet):
         genre_request.reviewed_at = now()
         genre_request.save()
         return Response({"status": "rejected"})
+    
