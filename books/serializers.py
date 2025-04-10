@@ -5,10 +5,17 @@ class BookSerializer(serializers.ModelSerializer):
     store_name = serializers.CharField(source="store.name", read_only=True)
     
     # Authors as a list of names for creation/update
-    authors = serializers.ListField(
-        child=serializers.CharField(max_length=255),
-        write_only=True
-    )
+    # authors = serializers.ListField(
+    #     child=serializers.CharField(max_length=255),
+    #     write_only=True
+    # )
+    # authors = serializers.PrimaryKeyRelatedField(
+    #     many=True,
+    #     queryset=Author.objects.all(),
+    #     write_only=True
+    # )
+    authors = serializers.ListField(child=serializers.CharField(), write_only=True)
+
     # Include the full author objects (with IDs) for reading
     author_details = serializers.SerializerMethodField()
     # Genres as IDs
@@ -39,11 +46,6 @@ class BookSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "store_name", "created_at", "updated_at", "status"]
 
-    # def validate_store(self, value):
-    #     request = self.context["request"]
-    #     if not Store.objects.filter(id=value.id, owner=request.user).exists():
-    #         raise serializers.ValidationError("You can only add books to your own store.")
-    #     return value
     def validate_store(self, value):
         request = self.context["request"]
         if request.user.is_staff:
@@ -58,36 +60,77 @@ class BookSerializer(serializers.ModelSerializer):
     def get_genre_names(self, obj):
         return [genre.name for genre in obj.genres.all()]
 
-    def create(self, validated_data):
-        author_names = validated_data.pop("authors")
-        genres = validated_data.pop("genres")
-        book = Book.objects.create(**validated_data)
-        for name in author_names:
-            author, created = Author.objects.get_or_create(
-                name__iexact=name.strip(),
-                defaults={"name": name.strip()}
-            )
-            book.authors.add(author)
-        book.genres.set(genres)
-        return book
+    # def create(self, validated_data):
+    #     author_names = validated_data.pop("authors")
+    #     genres = validated_data.pop("genres")
+    #     book = Book.objects.create(**validated_data)
+    #     for name in author_names:
+    #         author, created = Author.objects.get_or_create(
+    #             name__iexact=name.strip(),
+    #             defaults={"name": name.strip()}
+    #         )
+    #         book.authors.add(author)
+    #     book.genres.set(genres)
+    #     return book
+    # def create(self, validated_data):
+    #     authors = validated_data.pop("authors")
+    #     genres = validated_data.pop("genres")
+    #     book = Book.objects.create(**validated_data)
+    #     book.authors.set(authors)
+    #     book.genres.set(genres)
+    #     return book
 
-    def update(self, instance, validated_data):
-        if "authors" in validated_data:
-            author_names = validated_data.pop("authors")
-            instance.authors.clear()
-            for name in author_names:
-                author, created = Author.objects.get_or_create(
-                    name__iexact=name.strip(),
-                    defaults={"name": name.strip()}
-                )
-                instance.authors.add(author)
-        if "genres" in validated_data:
+    def create(self, validated_data):
+        try:
+            author_names = validated_data.pop('authors', [])
             genres = validated_data.pop("genres")
-            instance.genres.set(genres)
-        instance = super().update(instance, validated_data)
-        instance.status = "pending"
-        instance.save()
-        return instance
+            book = Book.objects.create(**validated_data)
+
+            for name in author_names:
+                author, _ = Author.objects.get_or_create(name=name.strip())
+                book.authors.add(author)
+            book.genres.set(genres)
+            return book
+        except Exception as e: 
+            raise serializers.ValidationError(f"Error creating book: {str(e)}")
+    # def update(self, instance, validated_data):
+    #     if "authors" in validated_data:
+    #         author_names = validated_data.pop("authors")
+    #         instance.authors.clear()
+    #         for name in author_names:
+    #             author, created = Author.objects.get_or_create(
+    #                 name__iexact=name.strip(),
+    #                 defaults={"name": name.strip()}
+    #             )
+    #             instance.authors.add(author)
+    #     if "genres" in validated_data:
+    #         genres = validated_data.pop("genres")
+    #         instance.genres.set(genres)
+    #     instance = super().update(instance, validated_data)
+    #     instance.status = "pending"
+    #     instance.save()
+    #     return instance
+    def update(self, instance, validated_data):
+        try:
+            if "authors" in validated_data:
+                authors = validated_data.pop("authors")
+                instance.authors.set(authors)
+            if "genres" in validated_data:
+                genres = validated_data.pop("genres")
+                instance.genres.set(genres)
+            instance = super().update(instance, validated_data)
+            instance.status = "pending"
+            instance.save()
+            return instance
+        except Exception as e:      
+            raise serializers.ValidationError(f"Error updating book: {str(e)}")
+
+    
+    # def validate_store(self, value):
+    #     request = self.context["request"]
+    #     if not Store.objects.filter(id=value.id, owner=request.user).exists():
+    #         raise serializers.ValidationError("You can only add books to your own store.")
+    #     return value
 
 class AuthorSerializer(serializers.ModelSerializer):
 

@@ -172,17 +172,20 @@ class AdminOrderDetailView(generics.RetrieveAPIView):
     
 
 @api_view(["GET", "PATCH"])
-@permission_classes([IsAdminUser])
 def admin_fee_view(request):
-    """Get or update the admin fee percentage"""
     config = SiteConfig.objects.first()
 
     if request.method == "PATCH":
+        if not request.user.is_staff:
+            return Response({"detail": "You do not have permission to perform this action."}, status=403)
         serializer = SiteConfigSerializer(config, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+
+    if not request.user.is_authenticated:
+        return Response({"detail": "Authentication credentials were not provided."}, status=401)
 
     serializer = SiteConfigSerializer(config)
     return Response(serializer.data)
