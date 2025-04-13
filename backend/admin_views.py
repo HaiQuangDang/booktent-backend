@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from django.utils.timezone import now
 from django.utils import timezone
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import TruncMonth, TruncDate, TruncYear, TruncDay, TruncWeek
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
 from django.db.utils import IntegrityError
@@ -18,7 +18,7 @@ from rest_framework.pagination import PageNumberPagination
 
 from stores.models import Store
 from books.models import Book, GenreRequest, Genre, Author
-from orders.models import Order
+from orders.models import Order, OrderItem
 from transactions.models import Transaction, SiteConfig
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -26,20 +26,34 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
-
+ 
 @api_view(["GET"])
 @permission_classes([IsAdminUser])  # Only admins can access
 def admin_stats(request):
-    stats = {
-        "total_users": User.objects.count(),
-        "total_stores": Store.objects.filter(status="active").count(),
-        "pending_stores": Store.objects.filter(status="pending").count(),
-        "total_books": Book.objects.filter(status="approved").count(),
-        "pending_books": Book.objects.filter(status="pending").count(),
-        "total_orders": Order.objects.count(),
-        "total_earnings": Transaction.objects.aggregate(Sum("admin_fee"))["admin_fee__sum"] or 0,
-    }
-    return Response(stats)
+    today = now().date()
+
+    # Get all orders from today
+    today_orders = Order.objects.filter(created_at__date=today)
+
+    # Total orders today
+    total_orders_today = today_orders.count()
+
+    # Total books sold today (sum of quantities in today's order items)
+    total_books_sold_today = OrderItem.objects.filter(order__created_at__date=today).aggregate(
+        total=Sum("quantity")
+    )["total"] or 0
+
+    # Total admin earnings from completed transactions today
+    earnings_today = Transaction.objects.filter(
+        created_at__date=today,
+        status="completed"
+    ).aggregate(total=Sum("admin_fee"))["total"] or 0
+
+    return Response({
+        "orders_today": total_orders_today,
+        "books_sold_today": total_books_sold_today,
+        "earnings_today": round(earnings_today, 2),
+    })
 
 @api_view(["GET"])
 @permission_classes([IsAdminUser]) 
@@ -55,37 +69,63 @@ def recent_activity(request):
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
 def earnings_stats(request):
-    today = timezone.now()  # Aware datetime
-    first_day_this_month = timezone.datetime(today.year, today.month, 1, tzinfo=timezone.get_default_timezone())
-    first_day_last_month = timezone.datetime(
-        (today.replace(day=1) - timedelta(days=1)).year,
-        (today.replace(day=1) - timedelta(days=1)).month,
-        1,
-        tzinfo=timezone.get_default_timezone()
-    )
+    today = timezone.now()
+
+    # Define the start of the week, month, and year
+    start_of_week = today - timedelta(days=today.weekday())  # Monday of the current week
+    start_of_month = today.replace(day=1)  # First day of the current month
+    start_of_year = today.replace(month=1, day=1)  # First day of the current year
+
+    # Total earnings for this week, this month, and this year
+    total_earnings_this_week = Transaction.objects.filter(
+        created_at__gte=start_of_week
+    ).aggregate(Sum("admin_fee"))["admin_fee__sum"] or 0
 
     total_earnings_this_month = Transaction.objects.filter(
-        created_at__gte=first_day_this_month
+        created_at__gte=start_of_month
     ).aggregate(Sum("admin_fee"))["admin_fee__sum"] or 0
 
-    total_earnings_last_month = Transaction.objects.filter(
-        created_at__gte=first_day_last_month, 
-        created_at__lt=first_day_this_month
+    total_earnings_this_year = Transaction.objects.filter(
+        created_at__gte=start_of_year
     ).aggregate(Sum("admin_fee"))["admin_fee__sum"] or 0
 
-    earnings_per_month = (
+    # Earnings breakdown for the week, month, and year
+    earnings_weekly = (
         Transaction.objects
-        .annotate(month=TruncMonth("created_at"))
-        .values("month")
+        .annotate(week=TruncDate(TruncWeek("created_at")))
+        .values("week")
         .annotate(total_earnings=Sum("admin_fee"))
-        .order_by("-month")[:6]
+        .filter(week__gte=start_of_year)  # Ensure we don't get future weeks
+        .order_by("-week")
     )
 
+    earnings_monthly = (
+        Transaction.objects
+        .annotate(month=TruncDate(TruncMonth("created_at")))
+        .values("month")
+        .annotate(total_earnings=Sum("admin_fee"))
+        .filter(month__gte=start_of_year)  # Ensure we don't get future months
+        .order_by("-month")
+    )
+
+    earnings_yearly = (
+        Transaction.objects
+        .annotate(year=TruncDate(TruncYear("created_at")))
+        .values("year")
+        .annotate(total_earnings=Sum("admin_fee"))
+        .order_by("-year")
+    )
+
+    # Prepare the data to be returned
     data = {
+        "total_earnings_this_week": total_earnings_this_week,
         "total_earnings_this_month": total_earnings_this_month,
-        "total_earnings_last_month": total_earnings_last_month,
-        "earnings_per_month": list(earnings_per_month),
+        "total_earnings_this_year": total_earnings_this_year,
+        "earnings_weekly": list(earnings_weekly),
+        "earnings_monthly": list(earnings_monthly),
+        "earnings_yearly": list(earnings_yearly),
     }
+
     return Response(data)
 
 # View to get recently added authors (added in the last 7 days)
@@ -105,6 +145,79 @@ def genre_requests(request):
     genre_requests = GenreRequest.objects.all().order_by("-created_at")
     genre_request_data = genre_requests.values("id", "name", "status", "requested_by__username", "created_at")
     return Response({"genre_requests": list(genre_request_data)})
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_book_stats(request):
+    today = now().date()
+    current_year = today.year
+    current_month = today.month
+
+    # Top 10 best-selling books
+    top_selling_books = (
+        OrderItem.objects
+        .values("book__id", "book__title")
+        .annotate(total_sold=Sum("quantity"))
+        .order_by("-total_sold")[:10]
+    )
+
+    # All order items
+    all_items = OrderItem.objects.all()
+
+    # Basic sales totals
+    daily_sales = all_items.filter(order__created_at__date=today).aggregate(
+        total=Sum("quantity")
+    )["total"] or 0
+
+    monthly_sales = all_items.filter(
+        order__created_at__year=current_year,
+        order__created_at__month=current_month,
+    ).aggregate(total=Sum("quantity"))["total"] or 0
+
+    yearly_sales = all_items.filter(
+        order__created_at__year=current_year
+    ).aggregate(total=Sum("quantity"))["total"] or 0
+
+    # Per-day sales for last 7 days
+    last_week = today - timedelta(days=6)
+    daily_breakdown = (
+        all_items.filter(order__created_at__date__gte=last_week)
+        .annotate(day=TruncDate("order__created_at"))
+        .values("day")
+        .annotate(quantity=Sum("quantity"))
+        .order_by("day")
+    )
+
+    # Per-month sales for current year
+    monthly_breakdown = (
+        all_items.filter(order__created_at__year=current_year)
+        .annotate(month=TruncDate(TruncMonth("order__created_at")))
+        .values("month")
+        .annotate(quantity=Sum("quantity"))
+        .order_by("month")
+    )
+
+    # Per-year sales for past years
+    yearly_breakdown = (
+        all_items
+        .annotate(year=TruncDate(TruncYear("order__created_at")))
+        .values("year")
+        .annotate(quantity=Sum("quantity"))
+        .order_by("year")
+    )
+
+    return Response({
+        "top_selling_books": list(top_selling_books),
+        "sales_stats": {
+            "daily_sales": daily_sales,
+            "monthly_sales": monthly_sales,
+            "yearly_sales": yearly_sales,
+            "daily_breakdown": list(daily_breakdown),
+            "monthly_breakdown": list(monthly_breakdown),
+            "yearly_breakdown": list(yearly_breakdown),
+        }
+    })
+
 
 class AdminBookListView(generics.ListAPIView):
     queryset = Book.objects.all().order_by("-created_at")
