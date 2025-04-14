@@ -307,7 +307,7 @@ class StoreBookDashboardView(APIView):
             "daily_sales": list(daily_sales)
         })
     
-    
+# Store Transaction Dashboard
 class StoreTransactionDashboardView(APIView):
     permission_classes = [IsAuthenticated]
 

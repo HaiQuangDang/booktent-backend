@@ -83,13 +83,6 @@ class BookSerializer(serializers.ModelSerializer):
         except Exception as e:      
             raise serializers.ValidationError(f"Error updating book: {str(e)}")
 
-    
-    # def validate_store(self, value):
-    #     request = self.context["request"]
-    #     if not Store.objects.filter(id=value.id, owner=request.user).exists():
-    #         raise serializers.ValidationError("You can only add books to your own store.")
-    #     return value
-
 class AuthorSerializer(serializers.ModelSerializer):
 
     class Meta:
