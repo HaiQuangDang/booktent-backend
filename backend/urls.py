@@ -29,8 +29,7 @@ adminGenresRequest = DefaultRouter()
 adminGenresRequest.register(r'admin/genres-request', GenreRequestAdminViewSet, basename="genre-request-admin")
 
 urlpatterns = [
-    # Django Admin
-    # path("admin/", admin.site.urls),
+   
 
     # Admin Custom Views
     path("admin/stats/", admin_stats, name="admin-stats"),
@@ -57,6 +56,8 @@ urlpatterns = [
 
     # Admin Routers
     path('', include(adminGenresRequest.urls)),
+    # Django Admin
+    path("admin/", admin.site.urls),
 
     # App Includes
     path("authentication/", include("rest_framework.urls")),

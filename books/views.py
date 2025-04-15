@@ -102,15 +102,15 @@ class IsAdminOrReadOnly(permissions.BasePermission):
 from rest_framework import filters
 
 class AuthorViewSet(viewsets.ModelViewSet):  
-    queryset = Author.objects.all().order_by("-created_at")
+    queryset = Author.objects.all().order_by("name")  # Sort by name A-Z
     serializer_class = AuthorSerializer
     permission_classes = [IsAdminOrReadOnly]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['name']  # 👈 this enables ?search=name
+    search_fields = ['name']
 
 
 class GenreViewSet(viewsets.ModelViewSet):  # Full CRUD
-    queryset = Genre.objects.all().order_by("-created_at")
+    queryset = Genre.objects.all().order_by("name")
     serializer_class = GenreSerializer
     permission_classes = [IsAdminOrReadOnly]  # Read for all, modify for admins only
 
