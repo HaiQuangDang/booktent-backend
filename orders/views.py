@@ -148,7 +148,7 @@ class OrderViewSet(viewsets.ViewSet):
         payment_method = request.query_params.get("payment_method", None)
 
         # Get orders that contain books from this store
-        orders = Order.objects.filter(items__book__store=store).distinct()
+        orders = Order.objects.filter(items__book__store=store).distinct().order_by("-created_at")
 
         # Apply filters if provided
         if order_status:
