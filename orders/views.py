@@ -118,7 +118,8 @@ class OrderViewSet(viewsets.ViewSet):
     def list(self, request):
         """Get all user orders."""
         user = request.user
-        orders = Order.objects.filter(user=user)
+        orders = Order.objects.filter(user=user).order_by("-created_at")
+        
         return Response(OrderSerializer(orders, many=True).data)
 
     def retrieve(self, request, pk=None):

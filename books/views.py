@@ -60,35 +60,33 @@ class BookViewSet(viewsets.ModelViewSet):
 
 
 class ApprovedBookListView(generics.ListAPIView):
-    """Returns top 20 best-selling approved books; fills remaining with latest books"""
+    """Returns top 8 best-selling approved books"""
     serializer_class = BookSerializer
     permission_classes = []  # Public access
 
     def get_queryset(self):
-        # Step 1: Top-selling approved books
-        top_books = (
+        return (
             Book.objects
-            .filter(status="approved", store__status="active", orderitem__order__order_status="completed")
+            .filter(
+                status="approved",
+                store__status="active",
+                orderitem__order__order_status="completed"
+            )
             .annotate(total_sold=Sum("orderitem__quantity"))
-            .order_by("-total_sold")
-            .distinct()
+            .order_by("-total_sold")[:8]
+        )
+class RecentBookListView(generics.ListAPIView):
+    """Returns 8 most recently created approved books"""
+    serializer_class = BookSerializer
+    permission_classes = []  # Public access
+
+    def get_queryset(self):
+        return (
+            Book.objects
+            .filter(status="approved", store__status="active")
+            .order_by("-created_at")[:8]
         )
 
-        top_ids = list(top_books.values_list("id", flat=True)[:20])
-        top_books_limited = top_books.filter(id__in=top_ids)
-
-        # Step 2: Fill with latest approved books not in top_ids
-        if len(top_ids) < 20:
-            filler_books = (
-                Book.objects
-                .filter(status="approved", store__status="active")
-                .exclude(id__in=top_ids)
-                .order_by("-created_at")[:20 - len(top_ids)]
-            )
-            # Combine both QuerySets
-            return list(top_books_limited) + list(filler_books)
-
-        return top_books_limited
 
 
 class IsAdminOrReadOnly(permissions.BasePermission):

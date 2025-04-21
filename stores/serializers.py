@@ -25,6 +25,7 @@ class StoreSerializer(serializers.ModelSerializer):
                 # Non-owner users see only approved books
                 books = books.filter(status="approved")
 
+            books = books.order_by("-created_at")
             # ✅ Pass `{"request": request}` like in AuthorBookSerializer
             return BookSerializer(books, many=True, context={"request": request}).data
         except Exception as e:
